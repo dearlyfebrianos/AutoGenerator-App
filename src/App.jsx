@@ -834,7 +834,7 @@ const CVGenerator = () => {
 
     const opt = {
       margin: [10, 10, 10, 10],
-      filename: `CV_${personalInfo.nama.replace(/\s+/g, "_") || "Saya"}.pdf`,
+      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_") || ''}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
         scale: 2,
@@ -868,16 +868,6 @@ const CVGenerator = () => {
         cvText += "\n";
       });
     });
-
-    const blob = new Blob([cvText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `CV_${personalInfo.nama || "Document"}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   return (
