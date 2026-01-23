@@ -1,0 +1,388 @@
+import React, { useState, useRef } from "react";
+import { Briefcase, Download, Plus, Trash2 } from "lucide-react";
+import html2pdf from "html2pdf.js";
+
+const CVGenerator = () => {
+  const [personalInfo, setPersonalInfo] = useState({
+    nama: "",
+    email: "",
+    telepon: "",
+    alamat: "",
+    kota: "",
+  });
+  const [profileSummary, setProfileSummary] = useState("");
+  const [sections, setSections] = useState([
+    {
+      id: 1,
+      type: "custom",
+      title: "PENDIDIKAN",
+      items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
+    },
+    {
+      id: 2,
+      type: "custom",
+      title: "PENGALAMAN KERJA",
+      items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
+    },
+  ]);
+
+  const cvRef = useRef(null);
+
+  const addSection = () => {
+    const newSection = {
+      id: Date.now(),
+      type: "custom",
+      title: "",
+      items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
+    };
+    setSections([...sections, newSection]);
+  };
+
+  const removeSection = (sectionId) => {
+    setSections(sections.filter((section) => section.id !== sectionId));
+  };
+
+  const updateSection = (sectionId, field, value) => {
+    setSections(
+      sections.map((section) =>
+        section.id === sectionId ? { ...section, [field]: value } : section,
+      ),
+    );
+  };
+
+  const addItem = (sectionId) => {
+    setSections(
+      sections.map((section) => {
+        if (section.id === sectionId) {
+          const newItem = {
+            id: Date.now(),
+            judul: "",
+            subjudul: "",
+            tahun: "",
+            deskripsi: "",
+          };
+          return { ...section, items: [...section.items, newItem] };
+        }
+        return section;
+      }),
+    );
+  };
+
+  const removeItem = (sectionId, itemId) => {
+    setSections(
+      sections.map((section) => {
+        if (section.id === sectionId) {
+          return {
+            ...section,
+            items: section.items.filter((item) => item.id !== itemId),
+          };
+        }
+        return section;
+      }),
+    );
+  };
+
+  const updateItem = (sectionId, itemId, field, value) => {
+    setSections(
+      sections.map((section) => {
+        if (section.id === sectionId) {
+          return {
+            ...section,
+            items: section.items.map((item) =>
+              item.id === itemId ? { ...item, [field]: value } : item,
+            ),
+          };
+        }
+        return section;
+      }),
+    );
+  };
+
+  const handleDownloadCV = () => {
+    if (!cvRef.current) return;
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase() || "SAYA"}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+    };
+    html2pdf().set(opt).from(cvRef.current).save();
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Form Section */}
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+          <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6 flex items-center">
+            <Briefcase
+              className="mr-3 text-purple-600 dark:text-purple-400"
+              size={32}
+            />
+            CV Generator
+          </h2>
+
+          {/* Personal Info */}
+          <div className="mb-8">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 pb-2 border-b-2 border-purple-600 dark:border-purple-500">
+              Informasi Pribadi
+            </h3>
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={personalInfo.nama}
+                onChange={(e) =>
+                  setPersonalInfo({ ...personalInfo, nama: e.target.value })
+                }
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                placeholder="Nama Lengkap"
+              />
+              <input
+                type="email"
+                value={personalInfo.email}
+                onChange={(e) =>
+                  setPersonalInfo({ ...personalInfo, email: e.target.value })
+                }
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                placeholder="Email"
+              />
+              <input
+                type="tel"
+                value={personalInfo.telepon}
+                onChange={(e) =>
+                  setPersonalInfo({ ...personalInfo, telepon: e.target.value })
+                }
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                placeholder="Nomor Telepon"
+              />
+              <input
+                type="text"
+                value={personalInfo.alamat}
+                onChange={(e) =>
+                  setPersonalInfo({ ...personalInfo, alamat: e.target.value })
+                }
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                placeholder="Alamat"
+              />
+              <input
+                type="text"
+                value={personalInfo.kota}
+                onChange={(e) =>
+                  setPersonalInfo({ ...personalInfo, kota: e.target.value })
+                }
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                placeholder="Kota, Provinsi"
+              />
+            </div>
+          </div>
+
+          {/* Profile Summary */}
+          <div className="mb-10">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 pb-2 border-b-2 border-purple-600 dark:border-purple-500">
+              Deskripsi Diri (Ringkasan Profil)
+            </h3>
+            <textarea
+              value={profileSummary}
+              onChange={(e) => setProfileSummary(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 min-h-[120px]"
+              placeholder="Contoh: Lulusan S1..."
+            />
+          </div>
+
+          {/* Sections */}
+          {sections.map((section) => (
+            <div key={section.id} className="mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <input
+                  type="text"
+                  value={section.title}
+                  onChange={(e) =>
+                    updateSection(
+                      section.id,
+                      "title",
+                      e.target.value.toUpperCase(),
+                    )
+                  }
+                  className="text-xl font-bold text-gray-800 dark:text-white pb-2 border-b-2 border-purple-600 dark:border-purple-500 bg-transparent focus:outline-none flex-1"
+                  placeholder="JUDUL SECTION"
+                />
+                <button
+                  onClick={() => removeSection(section.id)}
+                  className="ml-4 text-red-600 dark:text-red-400 hover:text-red-800 transition-colors"
+                >
+                  <Trash2 size={20} />
+                </button>
+              </div>
+              {section.items.map((item) => (
+                <div
+                  key={item.id}
+                  className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                      Item
+                    </h4>
+                    {section.items.length > 1 && (
+                      <button
+                        onClick={() => removeItem(section.id, item.id)}
+                        className="text-red-500 dark:text-red-400 hover:text-red-700 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={item.judul}
+                      onChange={(e) =>
+                        updateItem(section.id, item.id, "judul", e.target.value)
+                      }
+                      className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+                      placeholder="Judul (mis. Nama Institusi / Posisi)"
+                    />
+                    <input
+                      type="text"
+                      value={item.subjudul}
+                      onChange={(e) =>
+                        updateItem(
+                          section.id,
+                          item.id,
+                          "subjudul",
+                          e.target.value,
+                        )
+                      }
+                      className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+                      placeholder="Sub-judul (mis. Jurusan / Perusahaan)"
+                    />
+                    <input
+                      type="text"
+                      value={item.tahun}
+                      onChange={(e) =>
+                        updateItem(section.id, item.id, "tahun", e.target.value)
+                      }
+                      className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+                      placeholder="Tahun / Periode"
+                    />
+                    <textarea
+                      value={item.deskripsi}
+                      onChange={(e) =>
+                        updateItem(
+                          section.id,
+                          item.id,
+                          "deskripsi",
+                          e.target.value,
+                        )
+                      }
+                      className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+                      rows="3"
+                      placeholder="Deskripsi / Detail"
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => addItem(section.id)}
+                className="w-full py-2 border-2 border-dashed border-purple-300 dark:border-purple-500 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-all flex items-center justify-center space-x-2"
+              >
+                <Plus size={18} />
+                <span>Tambah Item</span>
+              </button>
+            </div>
+          ))}
+
+          <button
+            onClick={addSection}
+            className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center space-x-2"
+          >
+            <Plus size={20} />
+            <span>Tambah Section Baru</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Preview */}
+      <div className="lg:sticky lg:top-24 h-fit">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">
+              Preview CV
+            </h3>
+            <button
+              onClick={handleDownloadCV}
+              className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-all"
+            >
+              <Download size={20} />
+              <span>Download</span>
+            </button>
+          </div>
+          <div
+            ref={cvRef}
+            className="bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 p-8 min-h-[800px]"
+            style={{ fontFamily: "'Times New Roman', Times, serif" }}
+          >
+            <div className="text-center mb-6 pb-6">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                {personalInfo.nama || "NAMA LENGKAP"}
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {personalInfo.email || "email@example.com"} |{" "}
+                {personalInfo.telepon || "+62XXXXXXXXXX"}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {personalInfo.alamat || "Alamat"}
+                {personalInfo.kota && `, ${personalInfo.kota}`}
+              </p>
+            </div>
+
+            {profileSummary && (
+              <div className="mb-2 text-justify">
+                <p className="leading-6 text-gray-800 dark:text-gray-300">
+                  {profileSummary}
+                </p>
+              </div>
+            )}
+
+            {sections.map((section) => (
+              <div key={section.id} className="mb-6">
+                <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-3 mb-4">
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                    {section.title || "SECTION TITLE"}
+                  </h2>
+                </div>
+                {section.items.map((item) => (
+                  <div key={item.id} className="mb-4">
+                    {item.judul && (
+                      <h3 className="font-bold text-gray-900 dark:text-white">
+                        {item.judul}
+                      </h3>
+                    )}
+                    {item.subjudul && (
+                      <p className="text-sm text-gray-700 dark:text-gray-400">
+                        {item.subjudul}
+                      </p>
+                    )}
+                    {item.tahun && (
+                      <p className="text-sm text-gray-600 dark:text-gray-500 italic">
+                        {item.tahun}
+                      </p>
+                    )}
+                    {item.deskripsi && (
+                      <p className="text-sm text-gray-700 dark:text-gray-400 mt-1 whitespace-pre-wrap">
+                        {item.deskripsi}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CVGenerator;
