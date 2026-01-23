@@ -3,11 +3,11 @@ import React, { useState } from "react";
 import Header from "./components/layout/Header"
 import Footer from "./components/layout/Footer"
 
-import HomePage from "./pages/Homepage";
 import SuratGenerator from "./pages/SuratGenerator";
 import KalkulatorUsaha from "./pages/KalkulatorUsaha";
 import CVGenerator from "./pages/CVGenerator";
 import RingkasanMateri from "./pages/RingkasanMateri";
+import HomePage from "./pages/Homepage";
 
 const App = () => {
   const [activeMenu, setActiveMenu] = useState("home");
