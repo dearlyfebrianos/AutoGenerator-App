@@ -100,20 +100,71 @@ const CVGenerator = () => {
 
   const handleDownloadCV = () => {
     if (!cvRef.current) return;
+
+    const clone = cvRef.current.cloneNode(true);
+
+    const allElements = clone.querySelectorAll("*");
+    allElements.forEach((el) => {
+      if (el.classList) {
+        const classesToRemove = Array.from(el.classList).filter(
+          (cls) => cls.startsWith("dark:") || cls.includes("dark"),
+        );
+        classesToRemove.forEach((cls) => el.classList.remove(cls));
+      }
+
+      const tagName = el.tagName.toLowerCase();
+      if (
+        ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "div"].includes(
+          tagName,
+        )
+      ) {
+        el.style.color = "#000000";
+      }
+
+      if (el.style.borderColor || el.className.includes("border")) {
+        el.style.borderColor = "#000000";
+      }
+    });
+
+    clone.style.backgroundColor = "#ffffff";
+    clone.style.color = "#000000";
+
+    const tempContainer = document.createElement("div");
+    tempContainer.style.position = "absolute";
+    tempContainer.style.left = "-9999px";
+    tempContainer.style.backgroundColor = "#ffffff";
+    tempContainer.appendChild(clone);
+    document.body.appendChild(tempContainer);
+
     const opt = {
       margin: [10, 10, 10, 10],
-      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase() || "SAYA"}.pdf`,
+      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, " ").toUpperCase() || "SAYA"}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      },
+      jsPDF: {
+        unit: "mm",
+        format: "a4",
+        orientation: "portrait",
+      },
       pagebreak: { mode: ["avoid-all", "css", "legacy"] },
     };
-    html2pdf().set(opt).from(cvRef.current).save();
+
+    html2pdf()
+      .set(opt)
+      .from(clone)
+      .save()
+      .finally(() => {
+        document.body.removeChild(tempContainer);
+      });
   };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Form Section */}
       <div className="space-y-6">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
           <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6 flex items-center">
@@ -123,8 +174,6 @@ const CVGenerator = () => {
             />
             CV Generator
           </h2>
-
-          {/* Personal Info */}
           <div className="mb-8">
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 pb-2 border-b-2 border-purple-600 dark:border-purple-500">
               Informasi Pribadi
@@ -177,8 +226,6 @@ const CVGenerator = () => {
               />
             </div>
           </div>
-
-          {/* Profile Summary */}
           <div className="mb-10">
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 pb-2 border-b-2 border-purple-600 dark:border-purple-500">
               Deskripsi Diri (Ringkasan Profil)
@@ -190,8 +237,6 @@ const CVGenerator = () => {
               placeholder="Contoh: Lulusan S1..."
             />
           </div>
-
-          {/* Sections */}
           {sections.map((section) => (
             <div key={section.id} className="mb-8">
               <div className="flex justify-between items-center mb-4">
@@ -292,7 +337,6 @@ const CVGenerator = () => {
               </button>
             </div>
           ))}
-
           <button
             onClick={addSection}
             className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center space-x-2"
@@ -302,8 +346,6 @@ const CVGenerator = () => {
           </button>
         </div>
       </div>
-
-      {/* Preview */}
       <div className="lg:sticky lg:top-24 h-fit">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
           <div className="flex justify-between items-center mb-6">
@@ -320,57 +362,49 @@ const CVGenerator = () => {
           </div>
           <div
             ref={cvRef}
-            className="bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 p-8 min-h-[800px]"
+            className="bg-white p-8 min-h-[800px]"
             style={{ fontFamily: "'Times New Roman', Times, serif" }}
           >
             <div className="text-center mb-6 pb-6">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 {personalInfo.nama || "NAMA LENGKAP"}
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600">
                 {personalInfo.email || "email@example.com"} |{" "}
                 {personalInfo.telepon || "+62XXXXXXXXXX"}
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600">
                 {personalInfo.alamat || "Alamat"}
                 {personalInfo.kota && `, ${personalInfo.kota}`}
               </p>
             </div>
-
             {profileSummary && (
               <div className="mb-2 text-justify">
-                <p className="leading-6 text-gray-800 dark:text-gray-300">
-                  {profileSummary}
-                </p>
+                <p className="leading-6 text-gray-800">{profileSummary}</p>
               </div>
             )}
-
             {sections.map((section) => (
               <div key={section.id} className="mb-6">
-                <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-3 mb-4">
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                <div className="border-t-2 border-gray-800 pt-3 mb-4">
+                  <h2 className="text-lg font-bold text-gray-900">
                     {section.title || "SECTION TITLE"}
                   </h2>
                 </div>
                 {section.items.map((item) => (
                   <div key={item.id} className="mb-4">
                     {item.judul && (
-                      <h3 className="font-bold text-gray-900 dark:text-white">
-                        {item.judul}
-                      </h3>
+                      <h3 className="font-bold text-gray-900">{item.judul}</h3>
                     )}
                     {item.subjudul && (
-                      <p className="text-sm text-gray-700 dark:text-gray-400">
-                        {item.subjudul}
-                      </p>
+                      <p className="text-sm text-gray-700">{item.subjudul}</p>
                     )}
                     {item.tahun && (
-                      <p className="text-sm text-gray-600 dark:text-gray-500 italic">
+                      <p className="text-sm text-gray-600 italic">
                         {item.tahun}
                       </p>
                     )}
                     {item.deskripsi && (
-                      <p className="text-sm text-gray-700 dark:text-gray-400 mt-1 whitespace-pre-wrap">
+                      <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">
                         {item.deskripsi}
                       </p>
                     )}

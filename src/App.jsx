@@ -1,16 +1,13 @@
-// src/App.jsx
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
-  useNavigate,
 } from "react-router-dom";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
-
-// Pages
+import LoadingSplash from "./components/layout/LoadingSplash";
 import HomePage from "./pages/HomePage";
 import SuratGenerator from "./pages/SuratGenerator";
 import KalkulatorUsaha from "./pages/KalkulatorUsaha";
@@ -18,7 +15,6 @@ import CVGenerator from "./pages/CVGenerator";
 import RingkasanMateri from "./pages/RingkasanMateri";
 import NotFound from "./pages/404";
 
-// Theme logic (inline for simplicity)
 const useTheme = () => {
   const [theme, setTheme] = useState(() => {
     return typeof window !== "undefined"
@@ -53,13 +49,25 @@ const useTheme = () => {
   return [theme, setTheme];
 };
 
-// Wrapper untuk mengelola tema & navigasi global
 const AppContent = () => {
   const [theme, setTheme] = useTheme();
-  const navigate = useNavigate();
+  const [showSplash, setShowSplash] = useState(false);
 
-  // Fungsi untuk kembali ke beranda dari halaman lain
-  const goToHome = () => navigate("/");
+  useEffect(() => {
+    const hasVisited = sessionStorage.getItem("hasVisited");
+    if (!hasVisited) {
+      setShowSplash(true);
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+        sessionStorage.setItem("hasVisited", "true");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  if (showSplash) {
+    return <LoadingSplash onDismiss={() => setShowSplash(false)} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-300">
