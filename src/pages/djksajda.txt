@@ -1,0 +1,64 @@
+const handleDownloadCV = () => {
+    if (!cvRef.current) return;
+
+    const clone = cvRef.current.cloneNode(true);
+
+    const allElements = clone.querySelectorAll("*");
+    allElements.forEach((el) => {
+      if (el.classList) {
+        const classesToRemove = Array.from(el.classList).filter(
+          (cls) => cls.startsWith("dark:") || cls.includes("dark"),
+        );
+        classesToRemove.forEach((cls) => el.classList.remove(cls));
+      }
+
+      const tagName = el.tagName.toLowerCase();
+      if (
+        ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "div"].includes(
+          tagName,
+        )
+      ) {
+        el.style.color = "#000000";
+      }
+
+      if (el.style.borderColor || el.className.includes("border")) {
+        el.style.borderColor = "#000000";
+      }
+    });
+
+    clone.style.backgroundColor = "#ffffff";
+    clone.style.color = "#000000";
+
+    const tempContainer = document.createElement("div");
+    tempContainer.style.position = "absolute";
+    tempContainer.style.left = "-9999px";
+    tempContainer.style.backgroundColor = "#ffffff";
+    tempContainer.appendChild(clone);
+    document.body.appendChild(tempContainer);
+
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase() || "SAYA"}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      },
+      jsPDF: {
+        unit: "mm",
+        format: "a4",
+        orientation: "portrait",
+      },
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+    };
+
+    html2pdf()
+      .set(opt)
+      .from(clone)
+      .save()
+      .finally(() => {
+        document.body.removeChild(tempContainer);
+      });
+  };

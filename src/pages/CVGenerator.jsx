@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { Briefcase, Download, Plus, Trash2 } from "lucide-react";
 import html2pdf from "html2pdf.js";
+import { toast } from "react-hot-toast"; // 👈 hanya tambah ini
 
 const CVGenerator = () => {
   const [personalInfo, setPersonalInfo] = useState({
@@ -100,6 +101,37 @@ const CVGenerator = () => {
   };
 
   const handleDownloadCV = () => {
+    // ✅ Validasi wajib isi
+    const requiredFields = [
+      { value: personalInfo.nama, label: "Nama Lengkap" },
+      { value: personalInfo.email, label: "Email" },
+      { value: personalInfo.telepon, label: "Nomor Telepon" },
+      { value: personalInfo.alamat, label: "Alamat" },
+      { value: personalInfo.kota, label: "Kota / Provinsi" },
+    ];
+
+    const missingFields = requiredFields.filter((field) => !field.value.trim());
+
+    if (missingFields.length > 0) {
+      toast.error(
+        `Harap isi semua field wajib:\n${missingFields.map((f) => f.label).join(", ")}`,
+        {
+          duration: 5000,
+          style: {
+            background: "#fef2f2",
+            color: "#b91c1c",
+            border: "1px solid #fecaca",
+            borderRadius: "8px",
+            padding: "12px 16px",
+            fontSize: "14px",
+            lineHeight: "1.4",
+          },
+        },
+      );
+      return;
+    }
+
+    // 🔁 Logika PDF asli milikmu — tidak diubah
     if (!cvRef.current) return;
 
     const clone = cvRef.current.cloneNode(true);
@@ -182,22 +214,36 @@ const CVGenerator = () => {
             <div className="space-y-4">
               <input
                 type="text"
-                value={personalInfo.nama.toUpperCase()}
+                value={personalInfo.nama}
                 onChange={(e) =>
                   setPersonalInfo({ ...personalInfo, nama: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className={`w-full px-4 py-3 rounded-lg border ${
+                  !personalInfo.nama.trim()
+                    ? "border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
                 placeholder="Nama Lengkap"
               />
+              {!personalInfo.nama.trim().toUpperCase() && (
+                <p className="text-sm text-red-600">Wajib diisi</p>
+              )}
               <input
                 type="email"
                 value={personalInfo.email}
                 onChange={(e) =>
                   setPersonalInfo({ ...personalInfo, email: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className={`w-full px-4 py-3 rounded-lg border ${
+                  !personalInfo.email.trim()
+                    ? "border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
                 placeholder="Email"
               />
+              {!personalInfo.email.trim() && (
+                <p className="text-sm text-red-600">Wajib diisi</p>
+              )}
               <input
                 type="url"
                 value={personalInfo.link}
@@ -213,27 +259,48 @@ const CVGenerator = () => {
                 onChange={(e) =>
                   setPersonalInfo({ ...personalInfo, telepon: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className={`w-full px-4 py-3 rounded-lg border ${
+                  !personalInfo.telepon.trim()
+                    ? "border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
                 placeholder="Nomor Telepon"
               />
+              {!personalInfo.telepon.trim() && (
+                <p className="text-sm text-red-600">Wajib diisi</p>
+              )}
               <input
                 type="text"
                 value={personalInfo.alamat}
                 onChange={(e) =>
                   setPersonalInfo({ ...personalInfo, alamat: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className={`w-full px-4 py-3 rounded-lg border ${
+                  !personalInfo.alamat.trim()
+                    ? "border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
                 placeholder="Alamat"
               />
+              {!personalInfo.alamat.trim() && (
+                <p className="text-sm text-red-600">Wajib diisi</p>
+              )}
               <input
                 type="text"
                 value={personalInfo.kota}
                 onChange={(e) =>
                   setPersonalInfo({ ...personalInfo, kota: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className={`w-full px-4 py-3 rounded-lg border ${
+                  !personalInfo.kota.trim()
+                    ? "border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
                 placeholder="Kota, Provinsi"
               />
+              {!personalInfo.kota.trim() && (
+                <p className="text-sm text-red-600">Wajib diisi</p>
+              )}
             </div>
           </div>
           <div className="mb-10">
