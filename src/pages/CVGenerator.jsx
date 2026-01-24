@@ -28,23 +28,55 @@ import {
 } from "../utils/draftManager";
 import { showBadgeNotification } from "../components/ui/BadgeNotification";
 
+const COUNTRY_CODES = {
+  7: "RU",
+  1: "US",
+  44: "GB",
+  33: "FR",
+  49: "DE",
+  39: "IT",
+  34: "ES",
+  61: "AU",
+  81: "JP",
+  82: "KR",
+  86: "CN",
+  91: "IN",
+  62: "ID",
+};
+
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
 
   const digitsOnly = phone.replace(/\D/g, "");
 
+  if (phone.startsWith("+")) {
+    try {
+      const phoneNumber = parsePhoneNumberFromString(phone);
+      if (phoneNumber && phoneNumber.isValid()) {
+        return phoneNumber.formatInternational();
+      }
+    } catch (error) {
+      console.warn("Error parsing international number:", error);
+    }
+    return phone;
+  }
+
   if (
     digitsOnly.length >= 10 &&
     digitsOnly.length <= 13 &&
+    digitsOnly.startsWith("0") &&
     (digitsOnly.startsWith("08") ||
       digitsOnly.startsWith("021") ||
-      digitsOnly.startsWith("022"))
+      digitsOnly.startsWith("022") ||
+      digitsOnly.startsWith("031") ||
+      digitsOnly.startsWith("0411") ||
+      digitsOnly.startsWith("061") ||
+      digitsOnly.startsWith("0711") ||
+      digitsOnly.startsWith("0911"))
   ) {
-    const localNumber = digitsOnly.startsWith("0")
-      ? digitsOnly.substring(1)
-      : digitsOnly;
     try {
-      const phoneNumber = parsePhoneNumberFromString(`+${localNumber}`);
+      const localNumber = digitsOnly.substring(1);
+      const phoneNumber = parsePhoneNumberFromString(`+62${localNumber}`);
       if (phoneNumber && phoneNumber.isValid()) {
         return phoneNumber.formatInternational();
       }
@@ -53,18 +85,56 @@ const formatPhoneNumber = (phone) => {
     }
   }
 
-  try {
-    const phoneNumber = parsePhoneNumberFromString(phone);
-    if (phoneNumber && phoneNumber.isValid()) {
-      return phoneNumber.formatInternational();
-    }
+  if (digitsOnly.length >= 8) {
+    const countryPrefixes = [
+      "1",
+      "44",
+      "33",
+      "49",
+      "39",
+      "34",
+      "61",
+      "81",
+      "82",
+      "86",
+      "91",
+      "62",
+    ];
 
-    const phoneNumberID = parsePhoneNumberFromString(phone, "ID");
-    if (phoneNumberID && phoneNumberID.isValid()) {
-      return phoneNumberID.formatInternational();
+    for (let prefix of countryPrefixes) {
+      if (digitsOnly.startsWith(prefix)) {
+        try {
+          const phoneNumber = parsePhoneNumberFromString(`+${digitsOnly}`);
+          if (phoneNumber && phoneNumber.isValid()) {
+            return phoneNumber.formatInternational();
+          }
+        } catch (error) {
+          const countryMap = {
+            1: "US",
+            44: "GB",
+            33: "FR",
+            49: "DE",
+            39: "IT",
+            34: "ES",
+            61: "AU",
+            81: "JP",
+            82: "KR",
+            86: "CN",
+            91: "IN",
+            62: "ID",
+          };
+          try {
+            const phoneNumber = parsePhoneNumberFromString(
+              `+${digitsOnly}`,
+              countryMap[prefix],
+            );
+            if (phoneNumber && phoneNumber.isValid()) {
+              return phoneNumber.formatInternational();
+            }
+          } catch (e) {}
+        }
+      }
     }
-  } catch (error) {
-    console.warn("Error formatting phone number:", error);
   }
 
   return phone;
