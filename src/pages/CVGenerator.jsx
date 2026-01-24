@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
-import { Briefcase, Download, Plus, Trash2 } from "lucide-react";
+import { Briefcase, Download, Plus, Trash2, X } from "lucide-react";
 import html2pdf from "html2pdf.js";
-import { toast } from "react-hot-toast"; // 👈 hanya tambah ini
+import { toast } from "react-hot-toast";
 
 const CVGenerator = () => {
   const [personalInfo, setPersonalInfo] = useState({
@@ -27,6 +27,9 @@ const CVGenerator = () => {
       items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
     },
   ]);
+
+  const [foto, setFoto] = useState(null);
+  const fileInputRef = useRef(null);
 
   const cvRef = useRef(null);
 
@@ -100,8 +103,25 @@ const CVGenerator = () => {
     );
   };
 
+  const handleFotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFoto(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleHapusFoto = () => {
+    setFoto(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleDownloadCV = () => {
-    // ✅ Validasi wajib isi
     const requiredFields = [
       { value: personalInfo.nama, label: "Nama Lengkap" },
       { value: personalInfo.email, label: "Email" },
@@ -131,7 +151,6 @@ const CVGenerator = () => {
       return;
     }
 
-    // 🔁 Logika PDF asli milikmu — tidak diubah
     if (!cvRef.current) return;
 
     const clone = cvRef.current.cloneNode(true);
@@ -157,6 +176,11 @@ const CVGenerator = () => {
       if (el.style.borderColor || el.className.includes("border")) {
         el.style.borderColor = "#000000";
       }
+
+      if (tagName === "img") {
+        el.style.backgroundColor = "#ffffff";
+        el.style.border = "none";
+      }
     });
 
     clone.style.backgroundColor = "#ffffff";
@@ -171,7 +195,7 @@ const CVGenerator = () => {
 
     const opt = {
       margin: [10, 10, 10, 10],
-      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, " ").toUpperCase() || "SAYA"}.pdf`,
+      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase() || "SAYA"}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
         scale: 2,
@@ -212,9 +236,38 @@ const CVGenerator = () => {
               Informasi Pribadi
             </h3>
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Foto Profil (Opsional)
+                </label>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleFotoChange}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                />
+                {foto && (
+                  <div className="mt-3 relative inline-block">
+                    <img
+                      src={foto}
+                      alt="Preview Foto"
+                      className="w-20 h-20 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
+                    />
+                    <button
+                      onClick={handleHapusFoto}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
+                      aria-label="Hapus foto"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <input
                 type="text"
-                value={personalInfo.nama}
+                value={personalInfo.nama.toUpperCase()}
                 onChange={(e) =>
                   setPersonalInfo({ ...personalInfo, nama: e.target.value })
                 }
@@ -225,9 +278,10 @@ const CVGenerator = () => {
                 } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
                 placeholder="Nama Lengkap"
               />
-              {!personalInfo.nama.trim().toUpperCase() && (
+              {!personalInfo.nama.trim() && (
                 <p className="text-sm text-red-600">Wajib diisi</p>
               )}
+
               <input
                 type="email"
                 value={personalInfo.email}
@@ -244,6 +298,7 @@ const CVGenerator = () => {
               {!personalInfo.email.trim() && (
                 <p className="text-sm text-red-600">Wajib diisi</p>
               )}
+
               <input
                 type="url"
                 value={personalInfo.link}
@@ -253,6 +308,7 @@ const CVGenerator = () => {
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                 placeholder="Link Portfolio / LinkedIn / GitHub"
               />
+
               <input
                 type="tel"
                 value={personalInfo.telepon}
@@ -269,6 +325,7 @@ const CVGenerator = () => {
               {!personalInfo.telepon.trim() && (
                 <p className="text-sm text-red-600">Wajib diisi</p>
               )}
+
               <input
                 type="text"
                 value={personalInfo.alamat}
@@ -285,6 +342,7 @@ const CVGenerator = () => {
               {!personalInfo.alamat.trim() && (
                 <p className="text-sm text-red-600">Wajib diisi</p>
               )}
+
               <input
                 type="text"
                 value={personalInfo.kota}
@@ -443,41 +501,94 @@ const CVGenerator = () => {
             style={{ fontFamily: "'Times New Roman', Times, serif" }}
           >
             <div className="text-center mb-6 pb-6">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
-              </h1>
-              <div className="text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
-                {(() => {
-                  const contactItems = [];
-                  if (personalInfo.email) contactItems.push(personalInfo.email);
-                  if (personalInfo.link) {
-                    contactItems.push(
-                      <a
-                        key="link"
-                        href={personalInfo.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
-                      >
-                        {personalInfo.link}
-                      </a>,
-                    );
-                  }
-                  if (personalInfo.telepon)
-                    contactItems.push(personalInfo.telepon);
+              {foto ? (
+                <div className="flex items-start gap-6">
+                  <div className="flex-shrink-0 relative">
+                    <img
+                      src={foto}
+                      alt="Foto Profil"
+                      className="w-24 h-24 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                      {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
+                    </h1>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
+                      {(() => {
+                        const contactItems = [];
+                        if (personalInfo.email)
+                          contactItems.push(personalInfo.email);
+                        if (personalInfo.link) {
+                          contactItems.push(
+                            <a
+                              key="link"
+                              href={personalInfo.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+                            >
+                              {personalInfo.link}
+                            </a>,
+                          );
+                        }
+                        if (personalInfo.telepon)
+                          contactItems.push(personalInfo.telepon);
 
-                  return contactItems.map((item, index) => (
-                    <React.Fragment key={index}>
-                      {item}
-                      {index < contactItems.length - 1 && <span>|</span>}
-                    </React.Fragment>
-                  ));
-                })()}
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                {personalInfo.alamat || "Alamat"}
-                {personalInfo.kota && `, ${personalInfo.kota}`}
-              </p>
+                        return contactItems.map((item, index) => (
+                          <React.Fragment key={index}>
+                            {item}
+                            {index < contactItems.length - 1 && <span>|</span>}
+                          </React.Fragment>
+                        ));
+                      })()}
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                      {personalInfo.alamat || "Alamat"}
+                      {personalInfo.kota && `, ${personalInfo.kota}`}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                    {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
+                  </h1>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
+                    {(() => {
+                      const contactItems = [];
+                      if (personalInfo.email)
+                        contactItems.push(personalInfo.email);
+                      if (personalInfo.link) {
+                        contactItems.push(
+                          <a
+                            key="link"
+                            href={personalInfo.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+                          >
+                            {personalInfo.link}
+                          </a>,
+                        );
+                      }
+                      if (personalInfo.telepon)
+                        contactItems.push(personalInfo.telepon);
+
+                      return contactItems.map((item, index) => (
+                        <React.Fragment key={index}>
+                          {item}
+                          {index < contactItems.length - 1 && <span>|</span>}
+                        </React.Fragment>
+                      ));
+                    })()}
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                    {personalInfo.alamat || "Alamat"}
+                    {personalInfo.kota && `, ${personalInfo.kota}`}
+                  </p>
+                </>
+              )}
             </div>
             {profileSummary && (
               <div className="mb-2 text-justify">
