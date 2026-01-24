@@ -1,7 +1,10 @@
 import React from "react";
 import { FileText, Calculator, Briefcase, BookOpen } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-const HomePage = ({ setActiveMenu }) => {
+const HomePage = () => {
+  const navigate = useNavigate();
+
   const features = [
     {
       id: "surat",
@@ -55,7 +58,7 @@ const HomePage = ({ setActiveMenu }) => {
           return (
             <div
               key={feature.id}
-              onClick={() => setActiveMenu(feature.id)}
+              onClick={() => navigate(`/${feature.id}`)}
               className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer p-8 border border-gray-100 dark:border-gray-700 hover:scale-105"
             >
               <div

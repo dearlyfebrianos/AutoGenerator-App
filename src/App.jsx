@@ -14,6 +14,7 @@ import KalkulatorUsaha from "./pages/KalkulatorUsaha";
 import CVGenerator from "./pages/CVGenerator";
 import RingkasanMateri from "./pages/RingkasanMateri";
 import NotFound from "./pages/404";
+import InstallPrompt from "./ui/InstallPrompt";
 
 const useTheme = () => {
   const [theme, setTheme] = useState(() => {
@@ -84,6 +85,7 @@ const AppContent = () => {
         </Routes>
       </main>
       <Footer />
+      <InstallPrompt />
     </div>
   );
 };

@@ -151,6 +151,19 @@ const CVGenerator = () => {
       return;
     }
 
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    const showDownloadNotification = () => {
+      if (Notification.permission === "granted") {
+        new Notification("✅ Download Berhasil!", {
+          body: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase()}.pdf telah disimpan.`,
+          icon: "/icon-192.png", // opsional
+          badge: "/icon-192.png",
+        });
+      }
+    };
+
     if (!cvRef.current) return;
 
     const clone = cvRef.current.cloneNode(true);
@@ -215,6 +228,47 @@ const CVGenerator = () => {
       .set(opt)
       .from(clone)
       .save()
+      .then(() => {
+        showDownloadNotification();
+        toast.custom(
+          (t) => (
+            <div
+              className={`${
+                t.visible ? "animate-enter" : "animate-leave"
+              } max-w-md w-full bg-green-500 text-white shadow-lg rounded-lg pointer-events-auto flex p-4`}
+            >
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium">
+                    CV ATS{" "}
+                    <span className="font-bold">
+                      {personalInfo.nama.replace(/\s+/g, "_").toUpperCase()}.pdf
+                    </span>{" "}
+                    berhasil diunduh!
+                  </p>
+                </div>
+              </div>
+            </div>
+          ),
+          { duration: 5000 },
+        );
+      })
       .finally(() => {
         document.body.removeChild(tempContainer);
       });
