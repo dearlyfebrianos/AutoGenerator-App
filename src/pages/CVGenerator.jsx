@@ -182,7 +182,7 @@ const CVGenerator = () => {
             <div className="space-y-4">
               <input
                 type="text"
-                value={personalInfo.nama}
+                value={personalInfo.nama.toUpperCase()}
                 onChange={(e) =>
                   setPersonalInfo({ ...personalInfo, nama: e.target.value })
                 }
@@ -377,7 +377,7 @@ const CVGenerator = () => {
           >
             <div className="text-center mb-6 pb-6">
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                {personalInfo.nama || "NAMA LENGKAP"}
+                {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
               </h1>
               <div className="text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
                 {(() => {
