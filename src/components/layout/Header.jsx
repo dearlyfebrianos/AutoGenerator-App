@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from "react";
+// src/components/layout/Header.jsx
+import React, { useState } from "react";
 import {
-  FileText,
-  Menu,
-  X,
   Home,
-  FileText as FileTextIcon,
+  FileText,
   Calculator,
   Briefcase,
   BookOpen,
@@ -12,42 +10,15 @@ import {
   Sun,
   Moon,
   Monitor,
+  Menu,
+  X,
 } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
-const Header = ({ activeMenu, setActiveMenu }) => {
+const Header = ({ theme, setTheme }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [theme, setTheme] = useState(() => {
-    const savedTheme =
-      typeof window !== "undefined" ? localStorage.getItem("theme") : null;
-    return savedTheme || "auto";
-  });
   const [showThemeMenu, setShowThemeMenu] = useState(false);
-
-  // Apply theme
-  useEffect(() => {
-    const applyTheme = () => {
-      let effectiveTheme = theme;
-      if (theme === "auto") {
-        effectiveTheme = window.matchMedia("(prefers-color-scheme: dark)")
-          .matches
-          ? "dark"
-          : "light";
-      }
-      if (effectiveTheme === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
-      localStorage.setItem("theme", theme);
-    };
-
-    applyTheme();
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = () => theme === "auto" && applyTheme();
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, [theme]);
+  const location = useLocation();
 
   const handleThemeChange = (newTheme) => {
     setTheme(newTheme);
@@ -55,11 +26,11 @@ const Header = ({ activeMenu, setActiveMenu }) => {
   };
 
   const menuItems = [
-    { id: "home", label: "Beranda", icon: Home },
-    { id: "surat", label: "Generator Surat", icon: FileTextIcon },
-    { id: "keuangan", label: "Kalkulator Usaha", icon: Calculator },
-    { id: "cv", label: "CV Generator", icon: Briefcase },
-    { id: "materi", label: "Ringkasan Materi", icon: BookOpen },
+    { id: "/", label: "Beranda", icon: Home },
+    { id: "/surat", label: "Generator Surat", icon: FileText },
+    { id: "/keuangan", label: "Kalkulator Usaha", icon: Calculator },
+    { id: "/cv", label: "CV Generator", icon: Briefcase },
+    { id: "/materi", label: "Ringkasan Materi", icon: BookOpen },
   ];
 
   const themeOptions = [
@@ -73,7 +44,7 @@ const Header = ({ activeMenu, setActiveMenu }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           {/* Logo */}
-          <div className="flex items-center space-x-3">
+          <Link to="/" className="flex items-center space-x-3">
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-2 rounded-lg">
               <FileText className="text-white" size={24} />
             </div>
@@ -85,20 +56,18 @@ const Header = ({ activeMenu, setActiveMenu }) => {
                 Platform Generator Otomatis
               </p>
             </div>
-          </div>
+          </Link>
 
-          {/* Theme Selector */}
+          {/* Right Controls */}
           <div className="flex items-center space-x-2">
+            {/* Theme Selector */}
             <div className="relative">
               <button
                 onClick={() => setShowThemeMenu(!showThemeMenu)}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 title="Pengaturan Tema"
               >
-                <Settings
-                  className="text-gray-500 dark:text-gray-400"
-                  size={24}
-                />
+                <Settings className="text-gray-500 dark:text-gray-400" size={24} />
               </button>
               {showThemeMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
@@ -115,13 +84,9 @@ const Header = ({ activeMenu, setActiveMenu }) => {
                         }`}
                       >
                         <Icon size={18} />
-                        <span className="text-sm font-medium">
-                          {option.label}
-                        </span>
+                        <span className="text-sm font-medium">{option.label}</span>
                         {theme === option.value && (
-                          <span className="ml-auto text-blue-600 dark:text-blue-300">
-                            ✓
-                          </span>
+                          <span className="ml-auto text-blue-600 dark:text-blue-300">✓</span>
                         )}
                       </button>
                     );
@@ -135,11 +100,7 @@ const Header = ({ activeMenu, setActiveMenu }) => {
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
-              {isMobileMenuOpen ? (
-                <X className="dark:text-gray-300" size={24} />
-              ) : (
-                <Menu className="dark:text-gray-300" size={24} />
-              )}
+              {isMobileMenuOpen ? <X className="dark:text-gray-300" size={24} /> : <Menu className="dark:text-gray-300" size={24} />}
             </button>
           </div>
         </div>
@@ -149,18 +110,18 @@ const Header = ({ activeMenu, setActiveMenu }) => {
           {menuItems.map((item) => {
             const Icon = item.icon;
             return (
-              <button
+              <Link
                 key={item.id}
-                onClick={() => setActiveMenu(item.id)}
+                to={item.id}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
-                  activeMenu === item.id
+                  location.pathname === item.id
                     ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg"
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 }`}
               >
                 <Icon size={18} />
                 <span className="text-sm font-medium">{item.label}</span>
-              </button>
+              </Link>
             );
           })}
         </nav>
@@ -171,21 +132,19 @@ const Header = ({ activeMenu, setActiveMenu }) => {
             {menuItems.map((item) => {
               const Icon = item.icon;
               return (
-                <button
+                <Link
                   key={item.id}
-                  onClick={() => {
-                    setActiveMenu(item.id);
-                    setIsMobileMenuOpen(false);
-                  }}
+                  to={item.id}
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className={`w-full flex items-center space-x-2 px-4 py-3 rounded-lg transition-all ${
-                    activeMenu === item.id
+                    location.pathname === item.id
                       ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg"
                       : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
                 >
                   <Icon size={18} />
                   <span className="text-sm font-medium">{item.label}</span>
-                </button>
+                </Link>
               );
             })}
           </nav>
