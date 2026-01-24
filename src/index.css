@@ -146,3 +146,20 @@
 .animate-leave {
   animation: leave 300ms ease-in forwards;
 }
+
+.template-professional h2 {
+  position: relative;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.template-professional h2::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 50px;
+  height: 3px;
+  background: linear-gradient(to right, #3b82f6, #8b5cf6);
+  border-radius: 2px;
+}

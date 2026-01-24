@@ -1,7 +1,74 @@
-import React, { useState, useRef } from "react";
-import { Briefcase, Download, Plus, Trash2, X } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Briefcase,
+  Download,
+  Plus,
+  Trash2,
+  Save,
+  FolderOpen,
+  FileText,
+  X,
+} from "lucide-react";
 import html2pdf from "html2pdf.js";
 import { toast } from "react-hot-toast";
+import {
+  Document,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  AlignmentType,
+  Packer,
+} from "docx";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+import {
+  saveDraft,
+  loadDraft,
+  clearDraft,
+  unlockAchievement,
+} from "../utils/draftManager";
+import { showBadgeNotification } from "../components/ui/BadgeNotification";
+
+const formatPhoneNumber = (phone) => {
+  if (!phone) return "";
+
+  const digitsOnly = phone.replace(/\D/g, "");
+
+  if (
+    digitsOnly.length >= 10 &&
+    digitsOnly.length <= 13 &&
+    (digitsOnly.startsWith("08") ||
+      digitsOnly.startsWith("021") ||
+      digitsOnly.startsWith("022"))
+  ) {
+    const localNumber = digitsOnly.startsWith("0")
+      ? digitsOnly.substring(1)
+      : digitsOnly;
+    try {
+      const phoneNumber = parsePhoneNumberFromString(`+${localNumber}`);
+      if (phoneNumber && phoneNumber.isValid()) {
+        return phoneNumber.formatInternational();
+      }
+    } catch (error) {
+      console.warn("Error formatting Indonesian number:", error);
+    }
+  }
+
+  try {
+    const phoneNumber = parsePhoneNumberFromString(phone);
+    if (phoneNumber && phoneNumber.isValid()) {
+      return phoneNumber.formatInternational();
+    }
+
+    const phoneNumberID = parsePhoneNumberFromString(phone, "ID");
+    if (phoneNumberID && phoneNumberID.isValid()) {
+      return phoneNumberID.formatInternational();
+    }
+  } catch (error) {
+    console.warn("Error formatting phone number:", error);
+  }
+
+  return phone;
+};
 
 const CVGenerator = () => {
   const [personalInfo, setPersonalInfo] = useState({
@@ -27,11 +94,28 @@ const CVGenerator = () => {
       items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
     },
   ]);
-
   const [foto, setFoto] = useState(null);
+  const [template, setTemplate] = useState("minimal");
   const fileInputRef = useRef(null);
-
   const cvRef = useRef(null);
+
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      setPersonalInfo(draft.personalInfo || personalInfo);
+      setProfileSummary(draft.profileSummary || "");
+      setSections(draft.sections || sections);
+      setTemplate(draft.template || "minimal");
+      if (draft.foto) setFoto(draft.foto);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      saveDraft({ personalInfo, profileSummary, sections, template, foto });
+    }, 2000);
+    return () => clearTimeout(handler);
+  }, [personalInfo, profileSummary, sections, template, foto]);
 
   const addSection = () => {
     const newSection = {
@@ -121,6 +205,138 @@ const CVGenerator = () => {
     }
   };
 
+  const handleSaveDraft = () => {
+    saveDraft({ personalInfo, profileSummary, sections, template, foto });
+    toast.success("Draft berhasil disimpan!", { duration: 3000 });
+  };
+
+  const handleLoadDraft = () => {
+    const draft = loadDraft();
+    if (draft) {
+      setPersonalInfo(draft.personalInfo || personalInfo);
+      setProfileSummary(draft.profileSummary || "");
+      setSections(draft.sections || sections);
+      setTemplate(draft.template || "minimal");
+      if (draft.foto) setFoto(draft.foto);
+      toast.success("Draft berhasil dimuat!", { duration: 3000 });
+    } else {
+      toast.error("Tidak ada draft tersimpan!", { duration: 3000 });
+    }
+  };
+
+  const handleClearDraft = () => {
+    clearDraft();
+    toast.success("Draft dihapus!", { duration: 3000 });
+  };
+
+  const handleDownloadDOCX = () => {
+    const requiredFields = [
+      { value: personalInfo.nama, label: "Nama Lengkap" },
+      { value: personalInfo.email, label: "Email" },
+      { value: personalInfo.telepon, label: "Nomor Telepon" },
+      { value: personalInfo.alamat, label: "Alamat" },
+      { value: personalInfo.kota, label: "Kota / Provinsi" },
+    ];
+
+    const missingFields = requiredFields.filter((field) => !field.value.trim());
+
+    if (missingFields.length > 0) {
+      toast.error(
+        `Harap isi semua field wajib:\n${missingFields.map((f) => f.label).join(", ")}`,
+        {
+          duration: 5000,
+          style: {
+            background: "#fef2f2",
+            color: "#b91c1c",
+            border: "1px solid #fecaca",
+            borderRadius: "8px",
+            padding: "12px 16px",
+            fontSize: "14px",
+            lineHeight: "1.4",
+          },
+        },
+      );
+      return;
+    }
+
+    const formattedPhone = formatPhoneNumber(personalInfo.telepon);
+
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: [
+            new Paragraph({
+              text: personalInfo.nama.toUpperCase(),
+              heading: HeadingLevel.TITLE,
+              alignment: AlignmentType.CENTER,
+            }),
+            new Paragraph({
+              text: `${personalInfo.email} | ${formattedPhone}`,
+              alignment: AlignmentType.CENTER,
+            }),
+            new Paragraph({
+              text: `${personalInfo.alamat}${personalInfo.kota ? `, ${personalInfo.kota}` : ""}`,
+              alignment: AlignmentType.CENTER,
+            }),
+            new Paragraph({}),
+            ...(profileSummary
+              ? [
+                  new Paragraph({
+                    text: "RINGKASAN PROFIL",
+                    heading: HeadingLevel.HEADING_1,
+                  }),
+                  new Paragraph(profileSummary),
+                ]
+              : []),
+            ...sections.flatMap((section) => [
+              new Paragraph({
+                text: section.title,
+                heading: HeadingLevel.HEADING_1,
+              }),
+              ...section.items.map((item) => {
+                const children = [];
+                if (item.judul)
+                  children.push(new TextRun({ text: item.judul, bold: true }));
+                if (item.subjudul) {
+                  if (children.length > 0)
+                    children.push(new TextRun({ text: " • ", bold: false }));
+                  children.push(new TextRun(item.subjudul));
+                }
+                if (item.tahun) {
+                  if (children.length > 0)
+                    children.push(new TextRun({ text: " • ", bold: false }));
+                  children.push(new TextRun(item.tahun));
+                }
+                if (item.deskripsi) {
+                  if (children.length > 0)
+                    children.push(new TextRun({ text: "\n", bold: false }));
+                  children.push(new TextRun(item.deskripsi));
+                }
+                return new Paragraph({ children });
+              }),
+            ]),
+          ],
+        },
+      ],
+    });
+
+    Packer.toBlob(doc).then((blob) => {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase()}.docx`;
+      link.click();
+
+      const unlocked = unlockAchievement("word_export");
+      if (unlocked) {
+        showBadgeNotification(
+          "Dokumen Master!",
+          "Kamu telah mengekspor CV ke format Word!",
+        );
+      }
+    });
+  };
+
   const handleDownloadCV = () => {
     const requiredFields = [
       { value: personalInfo.nama, label: "Nama Lengkap" },
@@ -151,23 +367,9 @@ const CVGenerator = () => {
       return;
     }
 
-    if (Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-    const showDownloadNotification = () => {
-      if (Notification.permission === "granted") {
-        new Notification("✅ Download Berhasil!", {
-          body: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase()}.pdf telah disimpan.`,
-          icon: "/icon-192.png", // opsional
-          badge: "/icon-192.png",
-        });
-      }
-    };
-
     if (!cvRef.current) return;
 
     const clone = cvRef.current.cloneNode(true);
-
     const allElements = clone.querySelectorAll("*");
     allElements.forEach((el) => {
       if (el.classList) {
@@ -208,7 +410,7 @@ const CVGenerator = () => {
 
     const opt = {
       margin: [10, 10, 10, 10],
-      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, " ").toUpperCase() || "SAYA"}.pdf`,
+      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase() || "SAYA"}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
         scale: 2,
@@ -229,13 +431,10 @@ const CVGenerator = () => {
       .from(clone)
       .save()
       .then(() => {
-        showDownloadNotification();
         toast.custom(
           (t) => (
             <div
-              className={`${
-                t.visible ? "animate-enter" : "animate-leave"
-              } max-w-md w-full bg-green-500 text-white shadow-lg rounded-lg pointer-events-auto flex p-4`}
+              className={`${t.visible ? "animate-enter" : "animate-leave"} max-w-md w-full bg-green-500 text-white shadow-lg rounded-lg pointer-events-auto flex p-4`}
             >
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -268,11 +467,40 @@ const CVGenerator = () => {
           ),
           { duration: 5000 },
         );
+
+        const unlocked = unlockAchievement("pdf_export");
+        if (unlocked) {
+          showBadgeNotification(
+            "PDF Pro!",
+            "Kamu telah mengunduh CV dalam format PDF!",
+          );
+        }
+
+        const exports = JSON.parse(localStorage.getItem("cv_exports") || "0");
+        localStorage.setItem("cv_exports", JSON.stringify(exports + 1));
+        if (exports + 1 === 5) {
+          unlockAchievement("cv_master") &&
+            showBadgeNotification(
+              "CV Master!",
+              "Kamu telah membuat 5 CV! Luar biasa!",
+            );
+        }
       })
       .finally(() => {
         document.body.removeChild(tempContainer);
       });
   };
+
+  const getTemplateClass = () => {
+    switch (template) {
+      case "corporate":
+        return "border-l-4 border-blue-600 pl-4";
+      default:
+        return "";
+    }
+  };
+
+  const formattedPhonePreview = formatPhoneNumber(personalInfo.telepon);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -285,6 +513,68 @@ const CVGenerator = () => {
             />
             CV Generator
           </h2>
+
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Template CV
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                {
+                  id: "minimal",
+                  name: "Minimalis",
+                  desc: "Bersih & profesional",
+                },
+                {
+                  id: "corporate",
+                  name: "Korporat",
+                  desc: "Formal & terstruktur",
+                },
+              ].map((tpl) => (
+                <button
+                  key={tpl.id}
+                  onClick={() => setTemplate(tpl.id)}
+                  className={`p-4 rounded-xl border-2 transition-all ${
+                    template === tpl.id
+                      ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
+                      : "border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <div className="font-bold text-gray-800 dark:text-white">
+                    {tpl.name}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {tpl.desc}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex space-x-2 mb-6">
+            <button
+              onClick={handleSaveDraft}
+              className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Save size={16} />
+              <span>Simpan Draft</span>
+            </button>
+            <button
+              onClick={handleLoadDraft}
+              className="flex items-center space-x-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <FolderOpen size={16} />
+              <span>Muat Draft</span>
+            </button>
+            <button
+              onClick={handleClearDraft}
+              className="flex items-center space-x-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              <Trash2 size={16} />
+              <span>Hapus</span>
+            </button>
+          </div>
+
           <div className="mb-8">
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 pb-2 border-b-2 border-purple-600 dark:border-purple-500">
               Informasi Pribadi
@@ -541,17 +831,26 @@ const CVGenerator = () => {
             <h3 className="text-2xl font-bold text-gray-800 dark:text-white">
               Preview CV
             </h3>
-            <button
-              onClick={handleDownloadCV}
-              className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-all"
-            >
-              <Download size={20} />
-              <span>Download</span>
-            </button>
+            <div className="flex space-x-2">
+              <button
+                onClick={handleDownloadCV}
+                className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all"
+              >
+                <Download size={18} />
+                <span>PDF</span>
+              </button>
+              <button
+                onClick={handleDownloadDOCX}
+                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
+              >
+                <FileText size={18} />
+                <span>Word</span>
+              </button>
+            </div>
           </div>
           <div
             ref={cvRef}
-            className="p-8 min-h-[800px]"
+            className={`p-8 min-h-[800px] ${getTemplateClass()}`}
             style={{ fontFamily: "'Times New Roman', Times, serif" }}
           >
             <div className="text-center mb-6 pb-6">
@@ -586,8 +885,8 @@ const CVGenerator = () => {
                             </a>,
                           );
                         }
-                        if (personalInfo.telepon)
-                          contactItems.push(personalInfo.telepon);
+                        if (formattedPhonePreview)
+                          contactItems.push(formattedPhonePreview);
 
                         return contactItems.map((item, index) => (
                           <React.Fragment key={index}>
@@ -626,8 +925,8 @@ const CVGenerator = () => {
                           </a>,
                         );
                       }
-                      if (personalInfo.telepon)
-                        contactItems.push(personalInfo.telepon);
+                      if (formattedPhonePreview)
+                        contactItems.push(formattedPhonePreview);
 
                       return contactItems.map((item, index) => (
                         <React.Fragment key={index}>
