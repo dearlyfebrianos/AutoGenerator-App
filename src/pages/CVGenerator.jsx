@@ -9,6 +9,7 @@ const CVGenerator = () => {
     telepon: "",
     alamat: "",
     kota: "",
+    link: "",
   });
   const [profileSummary, setProfileSummary] = useState("");
   const [sections, setSections] = useState([
@@ -138,7 +139,7 @@ const CVGenerator = () => {
 
     const opt = {
       margin: [10, 10, 10, 10],
-      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, " ").toUpperCase() || "SAYA"}.pdf`,
+      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase() || "SAYA"}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
         scale: 2,
@@ -196,6 +197,15 @@ const CVGenerator = () => {
                 }
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                 placeholder="Email"
+              />
+              <input
+                type="url"
+                value={personalInfo.link}
+                onChange={(e) =>
+                  setPersonalInfo({ ...personalInfo, link: e.target.value })
+                }
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                placeholder="Link Portfolio / LinkedIn / GitHub"
               />
               <input
                 type="tel"
@@ -362,49 +372,79 @@ const CVGenerator = () => {
           </div>
           <div
             ref={cvRef}
-            className="bg-white p-8 min-h-[800px]"
+            className="p-8 min-h-[800px]"
             style={{ fontFamily: "'Times New Roman', Times, serif" }}
           >
             <div className="text-center mb-6 pb-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
                 {personalInfo.nama || "NAMA LENGKAP"}
               </h1>
-              <p className="text-sm text-gray-600">
-                {personalInfo.email || "email@example.com"} |{" "}
-                {personalInfo.telepon || "+62XXXXXXXXXX"}
-              </p>
-              <p className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
+                {(() => {
+                  const contactItems = [];
+                  if (personalInfo.email) contactItems.push(personalInfo.email);
+                  if (personalInfo.link) {
+                    contactItems.push(
+                      <a
+                        key="link"
+                        href={personalInfo.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+                      >
+                        {personalInfo.link}
+                      </a>,
+                    );
+                  }
+                  if (personalInfo.telepon)
+                    contactItems.push(personalInfo.telepon);
+
+                  return contactItems.map((item, index) => (
+                    <React.Fragment key={index}>
+                      {item}
+                      {index < contactItems.length - 1 && <span>|</span>}
+                    </React.Fragment>
+                  ));
+                })()}
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
                 {personalInfo.alamat || "Alamat"}
                 {personalInfo.kota && `, ${personalInfo.kota}`}
               </p>
             </div>
             {profileSummary && (
               <div className="mb-2 text-justify">
-                <p className="leading-6 text-gray-800">{profileSummary}</p>
+                <p className="leading-6 text-gray-800 dark:text-gray-300">
+                  {profileSummary}
+                </p>
               </div>
             )}
             {sections.map((section) => (
               <div key={section.id} className="mb-6">
-                <div className="border-t-2 border-gray-800 pt-3 mb-4">
-                  <h2 className="text-lg font-bold text-gray-900">
+                <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-3 mb-4">
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">
                     {section.title || "SECTION TITLE"}
                   </h2>
                 </div>
                 {section.items.map((item) => (
                   <div key={item.id} className="mb-4">
                     {item.judul && (
-                      <h3 className="font-bold text-gray-900">{item.judul}</h3>
+                      <h3 className="font-bold text-gray-900 dark:text-white">
+                        {item.judul}
+                      </h3>
                     )}
                     {item.subjudul && (
-                      <p className="text-sm text-gray-700">{item.subjudul}</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-400">
+                        {item.subjudul}
+                      </p>
                     )}
                     {item.tahun && (
-                      <p className="text-sm text-gray-600 italic">
+                      <p className="text-sm text-gray-600 dark:text-gray-500 italic">
                         {item.tahun}
                       </p>
                     )}
                     {item.deskripsi && (
-                      <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">
+                      <p className="text-sm text-gray-700 dark:text-gray-400 mt-1 whitespace-pre-wrap">
                         {item.deskripsi}
                       </p>
                     )}
