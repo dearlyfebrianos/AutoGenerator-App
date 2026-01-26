@@ -394,7 +394,7 @@ const CVGenerator = () => {
     Packer.toBlob(doc).then((blob) => {
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase()}.docx`;
+      link.download = `CV ATS ${personalInfo.nama.replace(/\s+/g, " ").toUpperCase()}.docx`;
       link.click();
 
       const unlocked = unlockAchievement("word_export");

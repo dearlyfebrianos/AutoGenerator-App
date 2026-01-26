@@ -1,4 +1,3 @@
-// src/components/layout/Header.jsx
 import React, { useState } from "react";
 import {
   Home,
@@ -12,10 +11,11 @@ import {
   Monitor,
   Menu,
   X,
+  Bug,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
-const Header = ({ theme, setTheme }) => {
+const Header = ({ theme, setTheme, onBugReportClick }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const location = useLocation();
@@ -43,7 +43,6 @@ const Header = ({ theme, setTheme }) => {
     <header className="bg-white dark:bg-gray-800 shadow-lg sticky top-0 z-50 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
-          {/* Logo */}
           <Link to="/" className="flex items-center space-x-3">
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-2 rounded-lg">
               <FileText className="text-white" size={24} />
@@ -58,16 +57,17 @@ const Header = ({ theme, setTheme }) => {
             </div>
           </Link>
 
-          {/* Right Controls */}
           <div className="flex items-center space-x-2">
-            {/* Theme Selector */}
             <div className="relative">
               <button
                 onClick={() => setShowThemeMenu(!showThemeMenu)}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 title="Pengaturan Tema"
               >
-                <Settings className="text-gray-500 dark:text-gray-400" size={24} />
+                <Settings
+                  className="text-gray-500 dark:text-gray-400"
+                  size={24}
+                />
               </button>
               {showThemeMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
@@ -84,9 +84,13 @@ const Header = ({ theme, setTheme }) => {
                         }`}
                       >
                         <Icon size={18} />
-                        <span className="text-sm font-medium">{option.label}</span>
+                        <span className="text-sm font-medium">
+                          {option.label}
+                        </span>
                         {theme === option.value && (
-                          <span className="ml-auto text-blue-600 dark:text-blue-300">✓</span>
+                          <span className="ml-auto text-blue-600 dark:text-blue-300">
+                            ✓
+                          </span>
                         )}
                       </button>
                     );
@@ -95,17 +99,19 @@ const Header = ({ theme, setTheme }) => {
               )}
             </div>
 
-            {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
-              {isMobileMenuOpen ? <X className="dark:text-gray-300" size={24} /> : <Menu className="dark:text-gray-300" size={24} />}
+              {isMobileMenuOpen ? (
+                <X className="dark:text-gray-300" size={24} />
+              ) : (
+                <Menu className="dark:text-gray-300" size={24} />
+              )}
             </button>
           </div>
         </div>
 
-        {/* Desktop Navigation */}
         <nav className="hidden md:flex space-x-1 py-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
@@ -124,9 +130,20 @@ const Header = ({ theme, setTheme }) => {
               </Link>
             );
           })}
+
+          <button
+            onClick={onBugReportClick}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
+              location.pathname === "/laporan-bug"
+                ? "bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            }`}
+          >
+            <Bug size={18} />
+            <span className="text-sm font-medium">Laporkan Bug</span>
+          </button>
         </nav>
 
-        {/* Mobile Navigation */}
         {isMobileMenuOpen && (
           <nav className="md:hidden pb-4 space-y-2">
             {menuItems.map((item) => {
@@ -147,6 +164,17 @@ const Header = ({ theme, setTheme }) => {
                 </Link>
               );
             })}
+
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                onBugReportClick();
+              }}
+              className="w-full flex items-center space-x-2 px-4 py-3 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Bug size={18} className="text-red-500" />
+              <span className="text-sm font-medium">Laporkan Bug</span>
+            </button>
           </nav>
         )}
       </div>
