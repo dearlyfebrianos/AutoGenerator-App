@@ -1,29 +1,66 @@
 import React, { useState, useRef } from "react";
-import { FileText, Download, Plus, Trash2, X } from "lucide-react";
+import { FileText, Download, Trash2, X } from "lucide-react";
 import SignatureCanvas from "react-signature-canvas";
-import html2pdf from "html2pdf.js";
+import { Document, Paragraph, TextRun, AlignmentType, Packer } from "docx";
 
 const SuratGenerator = () => {
-  const [jenisSurat, setJenisSurat] = useState("");
   const [formData, setFormData] = useState({
     nama: "",
     alamat: "",
     tujuan: "",
     keperluan: "",
-    tanggal: new Date().toISOString().split("T")[0],
+    tempatLahir: "",
+    tanggalLahir: "",
+    pendidikan: "SMA",
   });
   const [generatedSurat, setGeneratedSurat] = useState("");
   const [signature, setSignature] = useState(null);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const sigCanvas = useRef(null);
-  const suratRef = useRef(null); // 🔥 untuk PDF
+  const suratRef = useRef(null);
 
-  const jenisSuratOptions = [
-    { value: "izin", label: "Surat Izin" },
-    { value: "lamaran", label: "Surat Lamaran Kerja" },
-    { value: "pernyataan", label: "Surat Pernyataan" },
-    { value: "undangan", label: "Surat Undangan" },
-  ];
+  const getFormattedDate = () => {
+    const today = new Date();
+    return today.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const handleGenerate = () => {
+    const tanggalFormatted = getFormattedDate();
+    const kota = formData.alamat.split(",")[0].trim() || "Surabaya";
+
+    const surat = `${kota}, ${tanggalFormatted}
+
+Hal     : Lamaran Pekerjaan
+Lampiran   : Tiga berkas
+Yth. ${formData.tujuan}
+${formData.alamat}
+
+Dengan hormat,
+Berdasarkan postingan akun instagram @lokerserang.top pada 15 Januari 2026 bahwa PT. Rahadhyan Integrasi Nusantara memerlukan karyawan ${formData.keperluan}. Oleh karena itu, saya bermaksud mengajukan permohonan untuk mengisi lowongan kerja tersebut.
+
+Adapun identitas saya sebagai berikut
+nama        : ${formData.nama}
+tempat, tanggal lahir   : ${formData.tempatLahir}, ${formData.tanggalLahir}
+alamat      : ${formData.alamat}
+Pendidikan Terakhir   : ${formData.pendidikan}
+
+Sebagai bahan pertimbangan Bapak/Ibu, saya sertakan lampiran sebagai berikut:
+• pasfoto,
+• fotokopi kartu pelajar,
+• fotokopi lowongan kerja, dan
+• fotokopi riwayat hidup
+
+Demikian surat lamaran kerja ini saya buat. Besar harapan saya agar bisa diterima bekerja di perusahaan yang Bapak/Ibu pimpin. Atas perhatian Bapak/Ibu saya ucapkan terima kasih.
+
+Hormat saya,
+          ${formData.nama}`;
+
+    setGeneratedSurat(surat);
+  };
 
   const clearSignature = () => {
     sigCanvas.current.clear();
@@ -35,7 +72,6 @@ const SuratGenerator = () => {
       return;
     }
 
-    // Buat canvas sementara dengan latar PUTIH
     const tempCanvas = sigCanvas.current.getCanvas();
     const ctx = tempCanvas.getContext("2d");
     const imageData = ctx.getImageData(
@@ -45,134 +81,96 @@ const SuratGenerator = () => {
       tempCanvas.height,
     );
 
-    // Buat canvas baru dengan latar putih
     const whiteBgCanvas = document.createElement("canvas");
     whiteBgCanvas.width = tempCanvas.width;
     whiteBgCanvas.height = tempCanvas.height;
     const whiteCtx = whiteBgCanvas.getContext("2d");
 
-    // Isi dengan warna putih
     whiteCtx.fillStyle = "#ffffff";
     whiteCtx.fillRect(0, 0, whiteBgCanvas.width, whiteBgCanvas.height);
-
-    // Gambar tanda tangan di atasnya
     whiteCtx.putImageData(imageData, 0, 0);
 
-    // Simpan sebagai data URL
     setSignature(whiteBgCanvas.toDataURL("image/png"));
     setShowSignatureModal(false);
   };
 
-  const handleGenerate = () => {
-    let surat = "";
-    const tanggal = new Date(formData.tanggal).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+  const handleDownloadDOCX = async () => {
+    if (!generatedSurat || !formData.nama) return;
 
-    if (jenisSurat === "izin") {
-      surat = `${formData.alamat}
-${tanggal}
-Kepada Yth.
-${formData.tujuan}
-Dengan hormat,
-Saya yang bertanda tangan di bawah ini:
-Nama: ${formData.nama}
-Alamat: ${formData.alamat}
-Dengan ini mengajukan permohonan izin ${formData.keperluan}.
-Demikian surat izin ini saya buat dengan sebenarnya. Atas perhatian dan kebijaksanaannya, saya ucapkan terima kasih.
-Hormat saya,
-${formData.nama}`;
-    } else if (jenisSurat === "lamaran") {
-      surat = `${formData.alamat}
-${tanggal}
-Kepada Yth.
-${formData.tujuan}
-Dengan hormat,
-Saya yang bertanda tangan di bawah ini:
-Nama: ${formData.nama}
-Alamat: ${formData.alamat}
-Dengan surat ini saya mengajukan lamaran pekerjaan sebagai ${formData.keperluan} di perusahaan yang Bapak/Ibu pimpin.
-Sebagai bahan pertimbangan, bersama ini saya lampirkan:
-1. Daftar Riwayat Hidup
-2. Fotocopy Ijazah
-3. Fotocopy KTP
-4. Pas Foto terbaru
-Besar harapan saya untuk dapat diterima dan bergabung di perusahaan yang Bapak/Ibu pimpin. Atas perhatian dan kebijaksanaannya, saya ucapkan terima kasih.
-Hormat saya,
-${formData.nama}`;
-    } else if (jenisSurat === "pernyataan") {
-      surat = `SURAT PERNYATAAN
-Yang bertanda tangan di bawah ini:
-Nama: ${formData.nama}
-Alamat: ${formData.alamat}
-Dengan ini menyatakan bahwa ${formData.keperluan}.
-Demikian surat pernyataan ini saya buat dengan sebenar-benarnya dan penuh tanggung jawab.
-${formData.alamat}, ${tanggal}
-Yang membuat pernyataan,
-${formData.nama}`;
-    } else if (jenisSurat === "undangan") {
-      surat = `SURAT UNDANGAN
-Kepada Yth.
-${formData.tujuan}
-Dengan hormat,
-Dengan ini kami mengundang Bapak/Ibu/Saudara/i untuk menghadiri ${formData.keperluan}.
-Waktu: ${tanggal}
-Tempat: ${formData.alamat}
-Demikian undangan ini kami sampaikan. Atas perhatian dan kehadirannya, kami ucapkan terima kasih.
-Hormat kami,
-${formData.nama}`;
+    const lines = generatedSurat.split("\n");
+    const children = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.includes("Hormat saya,")) {
+        children.push(
+          new Paragraph({
+            text: line,
+            alignment: AlignmentType.LEFT,
+          }),
+        );
+
+        if (i + 1 < lines.length && lines[i + 1].trim()) {
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: lines[i + 1].trim(),
+                  bold: true,
+                }),
+              ],
+              alignment: AlignmentType.RIGHT,
+              indent: { left: 4000 },
+            }),
+          );
+        }
+        break;
+      } else {
+        children.push(
+          new Paragraph({
+            text: line,
+            alignment: AlignmentType.LEFT,
+          }),
+        );
+      }
     }
 
-    setGeneratedSurat(surat);
-  };
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children,
+        },
+      ],
+    });
 
-  const handleDownloadPDF = () => {
-    if (!suratRef.current) return;
-
-    const opt = {
-      margin: [15, 10, 10, 10], // top, right, bottom, left (mm)
-      filename: `surat_${jenisSurat}_${Date.now()}.pdf`,
-      image: { type: "png", quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
-    };
-
-    html2pdf().set(opt).from(suratRef.current).save();
+    try {
+      const blob = await Packer.toBlob(doc);
+      const link = document.createElement("a");
+      const fileName = `SURAT LAMARAN PEKERJAAN (${formData.nama}).docx`;
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      link.click();
+      alert(`✅ Berhasil diunduh: ${fileName}`);
+    } catch (err) {
+      console.error("Error generating DOCX:", err);
+      alert("Gagal membuat file DOCX. Coba lagi.");
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Form */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
         <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6 flex items-center">
           <FileText
             className="mr-3 text-blue-600 dark:text-blue-400"
             size={32}
           />
-          Generator Surat Otomatis
+          Generator Surat Lamaran Kerja
         </h2>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Jenis Surat
-              </label>
-              <select
-                value={jenisSurat}
-                onChange={(e) => setJenisSurat(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              >
-                <option value="">Pilih Jenis Surat</option>
-                {jenisSuratOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Nama Lengkap
@@ -183,8 +181,8 @@ ${formData.nama}`;
                 onChange={(e) =>
                   setFormData({ ...formData, nama: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="Masukkan nama lengkap"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Contoh: Dearly Febriano Irwansyah"
               />
             </div>
             <div>
@@ -196,52 +194,68 @@ ${formData.nama}`;
                 onChange={(e) =>
                   setFormData({ ...formData, alamat: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows="3"
-                placeholder="Masukkan alamat lengkap"
+                placeholder="Contoh: Surabaya, Jalan Kejawan Putih Tambak No. 123"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Tempat, Tanggal Lahir
+              </label>
+              <input
+                type="text"
+                value={formData.tempatLahir}
+                onChange={(e) =>
+                  setFormData({ ...formData, tempatLahir: e.target.value })
+                }
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Contoh: Sidoarjo, 9 Februari 2008"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Pendidikan Terakhir
+              </label>
+              <input
+                type="text"
+                value={formData.pendidikan}
+                onChange={(e) =>
+                  setFormData({ ...formData, pendidikan: e.target.value })
+                }
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Contoh: SMA"
               />
             </div>
           </div>
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Ditujukan Kepada
               </label>
-              <input
-                type="text"
+              <textarea
                 value={formData.tujuan}
                 onChange={(e) =>
                   setFormData({ ...formData, tujuan: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="Nama penerima atau instansi"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows="3"
+                placeholder="Contoh: HRD PT. Rahadyan Integrasi Nusantara"
               />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Keperluan / Posisi
+                Posisi yang Dilamar
               </label>
-              <textarea
+              <input
+                type="text"
                 value={formData.keperluan}
                 onChange={(e) =>
                   setFormData({ ...formData, keperluan: e.target.value })
                 }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                rows="3"
-                placeholder="Jelaskan keperluan surat"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Tanggal
-              </label>
-              <input
-                type="date"
-                value={formData.tanggal}
-                onChange={(e) =>
-                  setFormData({ ...formData, tanggal: e.target.value })
-                }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Contoh: Staff Pendataan"
               />
             </div>
             <div>
@@ -258,7 +272,6 @@ ${formData.nama}`;
                 </button>
                 {signature && (
                   <button
-                    type="button"
                     onClick={() => setSignature(null)}
                     className="px-4 py-3 bg-red-50 dark:bg-red-900 border-2 border-red-300 dark:border-red-600 text-red-700 dark:text-red-200 rounded-lg hover:bg-red-100 dark:hover:bg-red-800 transition-all"
                   >
@@ -278,16 +291,16 @@ ${formData.nama}`;
             </div>
           </div>
         </div>
+
         <button
           onClick={handleGenerate}
-          disabled={!jenisSurat || !formData.nama}
+          disabled={!formData.nama || !formData.alamat}
           className="mt-6 w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Generate Surat
         </button>
       </div>
 
-      {/* Modal Tanda Tangan */}
       {showSignatureModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full p-6">
@@ -306,7 +319,7 @@ ${formData.nama}`;
               <SignatureCanvas
                 ref={sigCanvas}
                 canvasProps={{
-                  className: "w-full h-64 rounded-lg",
+                  className: "w-full h-64",
                   style: { touchAction: "none" },
                 }}
                 backgroundColor="transparent"
@@ -332,7 +345,6 @@ ${formData.nama}`;
         </div>
       )}
 
-      {/* Hasil Surat (untuk PDF) */}
       {generatedSurat && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
           <div className="flex justify-between items-center mb-4">
@@ -340,70 +352,53 @@ ${formData.nama}`;
               Hasil Surat
             </h3>
             <button
-              onClick={handleDownloadPDF}
-              className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-all"
+              onClick={handleDownloadDOCX}
+              className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all"
             >
               <Download size={20} />
-              <span>Download PDF</span>
+              <span>Download Word</span>
             </button>
           </div>
 
-          {/* 👇 Elemen yang akan dijadikan PDF */}
           <div
             ref={suratRef}
-            className="p-8 bg-white"
+            className="p-8 bg-white font-family-arial"
             style={{
-              fontFamily: "'Times New Roman', Times, serif",
-              fontSize: "14pt",
-              lineHeight: 1.6,
-              maxWidth: "210mm", // A4 width
-              minHeight: "297mm", // A4 height
+              fontFamily: "'Arial', sans-serif",
+              fontSize: "12pt",
+              lineHeight: 1.5,
+              maxWidth: "210mm",
+              minHeight: "297mm",
               margin: "0 auto",
               padding: "20mm",
               boxSizing: "border-box",
             }}
           >
-            {generatedSurat.split("\n").map((paragraph, index) => {
-              if (
-                paragraph.includes("Hormat saya,") ||
-                paragraph.includes("Hormat kami,")
-              ) {
-                const parts = paragraph.split("\n");
+            {generatedSurat.split("\n").map((line, index) => {
+              if (line.includes("Hormat saya,")) {
                 return (
-                  <div key={index} style={{ marginBottom: "24pt" }}>
-                    {parts.map((line, lineIndex) => {
-                      if (
-                        line.includes("Hormat saya,") ||
-                        line.includes("Hormat kami,")
-                      ) {
-                        return (
-                          <div key={lineIndex} style={{ marginTop: "48pt" }}>
-                            <div>{line}</div>
-                            {signature && (
-                              <div
-                                style={{ marginTop: "12pt", height: "40px" }}
-                              >
-                                <img
-                                  src={signature}
-                                  alt="Tanda tangan"
-                                  style={{
-                                    height: "40px",
-                                    background: "transparent",
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-                      return <div key={lineIndex}>{line}</div>;
-                    })}
-                  </div>
+                  <React.Fragment key={index}>
+                    <div style={{ marginBottom: "24pt" }}>{line}</div>
+                    {index + 1 < generatedSurat.split("\n").length && (
+                      <div
+                        style={{
+                          marginTop: "36pt",
+                          textAlign: "right",
+                          fontWeight: "bold",
+                          display: "block",
+                          marginLeft: "auto",
+                          width: "100%",
+                        }}
+                      >
+                        {generatedSurat.split("\n")[index + 1].trim()}
+                      </div>
+                    )}
+                  </React.Fragment>
                 );
               }
               return (
                 <div key={index} style={{ marginBottom: "12pt" }}>
-                  {paragraph}
+                  {line}
                 </div>
               );
             })}
