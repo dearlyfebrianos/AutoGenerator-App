@@ -10,7 +10,7 @@
       ]
     },
     {
-      "source": "/sw\\.js",
+      "source": "/index.html",
       "headers": [
         {
           "key": "Cache-Control",
@@ -18,5 +18,8 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
