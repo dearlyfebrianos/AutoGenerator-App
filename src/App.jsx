@@ -414,6 +414,40 @@ const AppContent = () => {
   const [theme, setTheme] = useTheme();
   const [showSplash, setShowSplash] = useState(false);
   const [isBugModalOpen, setIsBugModalOpen] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    const handleUnhandleRejection = () => {
+      console.error(`Unahndled promise rejected: ${event.reason}`);
+      setHasError(true);
+    };
+
+    window.addEventListener("unhandledrejection", handleUnhandleRejection);
+    return () => {
+      window.removeEventListener("unhandledrejection", handleUnhandleRejection);
+    };
+  }, []);
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center p-8 bg-white rounded-xl shadow-lg">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">
+            Aplikasi Diperbarui
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Silakan refresh halaman untuk melihat versi terbaru.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Refresh Sekarang
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const DISCORD_WEBHOOK_URL =
     "https://discord.com/api/webhooks/1464921346596405370/g_AFnbarh11cmDJ2V3UDeHSI_v5S3pSACzMG6vz5U9s8wgVwH9Md2zRv34jpDFl3_2DY";

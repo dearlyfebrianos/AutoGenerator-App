@@ -49,10 +49,10 @@ alamat      : ${formData.alamat}
 Pendidikan Terakhir   : ${formData.pendidikan}
 
 Sebagai bahan pertimbangan Bapak/Ibu, saya sertakan lampiran sebagai berikut:
-• pasfoto,
-• fotokopi kartu pelajar,
-• fotokopi lowongan kerja, dan
-• fotokopi riwayat hidup
+1. pasfoto,
+2. fotokopi kartu pelajar,
+3. fotokopi lowongan kerja, dan
+4. fotokopi riwayat hidup
 
 Demikian surat lamaran kerja ini saya buat. Besar harapan saya agar bisa diterima bekerja di perusahaan yang Bapak/Ibu pimpin. Atas perhatian Bapak/Ibu saya ucapkan terima kasih.
 
@@ -136,12 +136,7 @@ Hormat saya,
     }
 
     const doc = new Document({
-      sections: [
-        {
-          properties: {},
-          children,
-        },
-      ],
+      sections: [{ properties: {}, children }],
     });
 
     try {
@@ -151,7 +146,6 @@ Hormat saya,
       link.href = URL.createObjectURL(blob);
       link.download = fileName;
       link.click();
-      alert(`✅ Berhasil diunduh: ${fileName}`);
     } catch (err) {
       console.error("Error generating DOCX:", err);
       alert("Gagal membuat file DOCX. Coba lagi.");
@@ -362,7 +356,7 @@ Hormat saya,
 
           <div
             ref={suratRef}
-            className="p-8 bg-white font-family-arial"
+            className="p-8 bg-white"
             style={{
               fontFamily: "'Arial', sans-serif",
               fontSize: "12pt",
@@ -385,7 +379,6 @@ Hormat saya,
                           marginTop: "36pt",
                           textAlign: "right",
                           fontWeight: "bold",
-                          display: "block",
                           marginLeft: "auto",
                           width: "100%",
                         }}

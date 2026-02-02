@@ -1,9 +1,15 @@
 const DRAFT_KEY = "autogen_cv_draft";
 const ACHIEVEMENT_KEY = "autogen_achievements";
+const APP_VERSION = "1.2.0";
 
 export const saveDraft = (data) => {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+    const draftData = {
+      version: APP_VERSION,
+      data,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
   } catch (e) {
     console.warn("Gagal menyimpan draft:", e);
   }
@@ -11,12 +17,23 @@ export const saveDraft = (data) => {
 
 export const loadDraft = () => {
   try {
-    const data = localStorage.getItem(DRAFT_KEY);
-    return data ? JSON.parse(data) : null;
+    const saved = localStorage.getItem(DRAFT_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.version === APP_VERSION) {
+        return parsed.data;
+      }
+      console.log(
+        "Draft diabaikan karena versi berbeda:",
+        parsed.version,
+        "≠",
+        APP_VERSION,
+      );
+    }
   } catch (e) {
     console.warn("Gagal memuat draft:", e);
-    return null;
   }
+  return null;
 };
 
 export const clearDraft = () => {
