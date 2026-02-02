@@ -794,14 +794,11 @@ const CVGenerator = () => {
                   type="text"
                   value={section.title}
                   onChange={(e) =>
-                    updateSection(
-                      section.id,
-                      "title",
-                      e.target.value.toUpperCase(),
-                    )
+                    updateSection(section.id, "title", e.target.value)
                   }
                   className="text-xl font-bold text-gray-800 dark:text-white pb-2 border-b-2 border-purple-600 dark:border-purple-500 bg-transparent focus:outline-none flex-1"
                   placeholder="JUDUL SECTION"
+                  style={{ textTransform: "uppercase" }}
                 />
                 <button
                   onClick={() => removeSection(section.id)}
