@@ -16,6 +16,7 @@ import RingkasanMateri from "./pages/RingkasanMateri";
 import NotFound from "./pages/404";
 import InstallPrompt from "./components/ui/InstallPrompt";
 import { toast } from "react-hot-toast";
+import useSeo from "./hooks/useSeo"
 
 const BugReportModal = ({ isOpen, onClose, webhookUrl }) => {
   const [title, setTitle] = useState("");
@@ -467,6 +468,27 @@ const AppContent = () => {
   if (showSplash) {
     return <LoadingSplash onDismiss={() => setShowSplash(false)} />;
   }
+
+  const seoData = {
+    title: "AutoGen - Generator Surat Otomatis",
+    description: "Buat surat resmi dengan mudah dan cepat menggunakan AutoGen",
+    og: {
+      title: "AutoGen - Generator Surat Otomatis",
+      description: "Buat surat resmi dengan mudah dan cepat",
+      image: "/images/og-image.jpg",
+      url: "https://auto-generator-app.vercel.app/",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "AutoGen - Generator Surat Otomatis",
+      description: "Buat surat resmi dengan mudah dan cepat",
+      image: "/images/og-image.jpg",
+    },
+    canonicalUrl: "https://auto-generator-app.vercel.app/",
+  };
+
+  useSeo(seoData)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-300">
