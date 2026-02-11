@@ -98,10 +98,24 @@ const initializeApp = () => {
 };
 
 initializeApp();
+
 if (
   window.location.search.includes("reload=1") ||
   window.location.search.includes("clear_cache=1")
 ) {
+  localStorage.clear();
+  caches
+    .keys()
+    .then((names) => Promise.all(names.map((name) => caches.delete(name))));
+  window.location.href = "/";
+}
+
+if (window.location.search.includes("force=reload")) {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((reg) => reg.unregister());
+    });
+  }
   localStorage.clear();
   caches
     .keys()

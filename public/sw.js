@@ -1,11 +1,5 @@
-const CACHE_NAME = "autogen-v2";
-const urlsToCache = [
-  "/",
-  "/index.html",
-  "/manifest.json",
-  "/favicon.ico",
-  "/assets/*",
-];
+const CACHE_NAME = "autogen-v3";
+const urlsToCache = ["/", "/index.html", "/manifest.json", "/favicon.ico"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -17,9 +11,9 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
+        cacheNames.map((name) => {
+          if (name !== CACHE_NAME) {
+            return caches.delete(name);
           }
         }),
       );
@@ -38,39 +32,35 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches
-      .match(event.request)
-      .then((response) => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request).then((networkResponse) => {
-          if (!networkResponse || networkResponse.status !== 200) {
-            return networkResponse;
+    caches.match(event.request).then((response) => {
+      if (response) return response;
+
+      return fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, networkResponse.clone());
+            });
           }
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
           return networkResponse;
+        })
+        .catch(() => {
+          return new Response(
+            `
+              <html>
+                <head><title>Aplikasi Siap</title></head>
+                <body style="margin:0;padding:20px;font-family:Arial;text-align:center">
+                  <h2>✅ Aplikasi Siap</h2>
+                  <p>Sedang memuat versi terbaru...</p>
+                  <script>setTimeout(() => location.reload(), 1500);</script>
+                </body>
+              </html>
+            `,
+            {
+              headers: { "Content-Type": "text/html" },
+            },
+          );
         });
-      })
-      .catch(() => {
-        return new Response(
-          `
-          <html>
-            <head><title>Update Diperlukan</title></head>
-            <body style="margin:0;padding:20px;font-family:Arial">
-              <h2>🛠️ Aplikasi Diperbarui</h2>
-              <p>Halaman ini telah diperbarui. Silakan refresh atau buka di tab baru.</p>
-              <button onclick="location.reload()">🔄 Refresh Sekarang</button>
-            </body>
-          </html>
-        `,
-          {
-            headers: { "Content-Type": "text/html" },
-          },
-        );
-      }),
+    }),
   );
 });
