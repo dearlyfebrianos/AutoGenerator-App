@@ -16,7 +16,29 @@ import RingkasanMateri from "./pages/RingkasanMateri";
 import NotFound from "./pages/404";
 import InstallPrompt from "./components/ui/InstallPrompt";
 import { toast } from "react-hot-toast";
-import useSeo from "./hooks/useSeo"
+import useSeo from "./hooks/useSeo";
+
+const DISCORD_WEBHOOK_URL =
+  "https://discord.com/api/webhooks/1464921346596405370/g_AFnbarh11cmDJ2V3UDeHSI_v5S3pSACzMG6vz5U9s8wgVwH9Md2zRv34jpDFl3_2DY";
+
+const seoData = {
+  title: "AutoGen - Generator Surat Otomatis",
+  description: "Buat surat resmi dengan mudah dan cepat menggunakan AutoGen",
+  og: {
+    title: "AutoGen - Generator Surat Otomatis",
+    description: "Buat surat resmi dengan mudah dan cepat",
+    image: "/images/og-image.jpg",
+    url: "https://auto-generator-app.vercel.app/",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AutoGen - Generator Surat Otomatis",
+    description: "Buat surat resmi dengan mudah dan cepat",
+    image: "/images/og-image.jpg",
+  },
+  canonicalUrl: "https://auto-generator-app.vercel.app/",
+};
 
 const BugReportModal = ({ isOpen, onClose, webhookUrl }) => {
   const [title, setTitle] = useState("");
@@ -135,7 +157,6 @@ const BugReportModal = ({ isOpen, onClose, webhookUrl }) => {
         return;
       }
       setFile(selectedFile);
-
       const url = URL.createObjectURL(selectedFile);
       setPreviewUrl(url);
     }
@@ -418,16 +439,32 @@ const AppContent = () => {
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    const handleUnhandleRejection = () => {
-      console.error(`Unahndled promise rejected: ${event.reason}`);
+    const handleUnhandledRejection = (event) => {
+      console.error(`Unhandled promise rejected: ${event.reason}`);
       setHasError(true);
     };
-
-    window.addEventListener("unhandledrejection", handleUnhandleRejection);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
     return () => {
-      window.removeEventListener("unhandledrejection", handleUnhandleRejection);
+      window.removeEventListener(
+        "unhandledrejection",
+        handleUnhandledRejection,
+      );
     };
   }, []);
+
+  useEffect(() => {
+    const hasVisited = sessionStorage.getItem("hasVisited");
+    if (!hasVisited) {
+      setShowSplash(true);
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+        sessionStorage.setItem("hasVisited", "true");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  useSeo(seoData);
 
   if (hasError) {
     return (
@@ -450,45 +487,9 @@ const AppContent = () => {
     );
   }
 
-  const DISCORD_WEBHOOK_URL =
-    "https://discord.com/api/webhooks/1464921346596405370/g_AFnbarh11cmDJ2V3UDeHSI_v5S3pSACzMG6vz5U9s8wgVwH9Md2zRv34jpDFl3_2DY";
-
-  useEffect(() => {
-    const hasVisited = sessionStorage.getItem("hasVisited");
-    if (!hasVisited) {
-      setShowSplash(true);
-      const timer = setTimeout(() => {
-        setShowSplash(false);
-        sessionStorage.setItem("hasVisited", "true");
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
   if (showSplash) {
     return <LoadingSplash onDismiss={() => setShowSplash(false)} />;
   }
-
-  const seoData = {
-    title: "AutoGen - Generator Surat Otomatis",
-    description: "Buat surat resmi dengan mudah dan cepat menggunakan AutoGen",
-    og: {
-      title: "AutoGen - Generator Surat Otomatis",
-      description: "Buat surat resmi dengan mudah dan cepat",
-      image: "/images/og-image.jpg",
-      url: "https://auto-generator-app.vercel.app/",
-      type: "website",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: "AutoGen - Generator Surat Otomatis",
-      description: "Buat surat resmi dengan mudah dan cepat",
-      image: "/images/og-image.jpg",
-    },
-    canonicalUrl: "https://auto-generator-app.vercel.app/",
-  };
-
-  useSeo(seoData)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-300">
@@ -510,7 +511,6 @@ const AppContent = () => {
       </main>
       <Footer />
       <InstallPrompt />
-
       <BugReportModal
         isOpen={isBugModalOpen}
         onClose={() => setIsBugModalOpen(false)}

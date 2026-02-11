@@ -1,66 +1,71 @@
 const CACHE_NAME = "autogen-v3";
-const urlsToCache = ["/", "/index.html", "/manifest.json", "/favicon.ico"];
+const STATIC_ASSETS = ["/manifest.json", "/favicon.ico", "/icon-192.png"];
 
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)),
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)),
   );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((name) => {
-          if (name !== CACHE_NAME) {
-            return caches.delete(name);
-          }
-        }),
-      );
-    }),
+    Promise.all([
+      caches.keys().then((cacheNames) =>
+        Promise.all(
+          cacheNames.map((name) => {
+            if (name !== CACHE_NAME) return caches.delete(name);
+          }),
+        ),
+      ),
+      clients.claim(),
+    ]),
   );
 });
 
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match("/index.html")),
+    );
+    return;
+  }
+
   if (
-    event.request.url.includes("/api/") ||
-    event.request.url.includes("/surat") ||
-    event.request.url.includes("/cv") ||
-    event.request.url.includes("/materi")
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/surat") ||
+    url.pathname.startsWith("/cv") ||
+    url.pathname.startsWith("/materi")
   ) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      if (response) return response;
-
-      return fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse.clone());
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          return new Response(
-            `
-              <html>
-                <head><title>Aplikasi Siap</title></head>
-                <body style="margin:0;padding:20px;font-family:Arial;text-align:center">
-                  <h2>✅ Aplikasi Siap</h2>
-                  <p>Sedang memuat versi terbaru...</p>
-                  <script>setTimeout(() => location.reload(), 1500);</script>
-                </body>
-              </html>
-            `,
-            {
-              headers: { "Content-Type": "text/html" },
-            },
-          );
-        });
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((response) => {
+        if (response && response.status === 200 && response.type === "basic") {
+          const clone = response.clone();
+          caches
+            .open(CACHE_NAME)
+            .then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      });
     }),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+  if (event.data === "CLEAR_CACHE") {
+    caches
+      .keys()
+      .then((names) => Promise.all(names.map((n) => caches.delete(n))));
+  }
 });

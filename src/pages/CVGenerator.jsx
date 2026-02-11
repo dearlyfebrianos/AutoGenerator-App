@@ -1022,7 +1022,7 @@ const CVGenerator = () => {
               <div key={section.id} className="mb-6">
                 <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-3 mb-4">
                   <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                    {section.title || "SECTION TITLE"}
+                    {section.title.toUpperCase() || "SECTION TITLE"}
                   </h2>
                 </div>
                 {section.items.map((item) => (
