@@ -11,8 +11,10 @@ import {
   ChevronDown,
   ChevronUp,
   Palette,
+  MoreVertical,
   ArrowUp,
   ArrowDown,
+  User,
 } from "lucide-react";
 import html2pdf from "html2pdf.js";
 import { toast } from "react-hot-toast";
@@ -35,7 +37,7 @@ import {
 import { showBadgeNotification } from "../components/ui/BadgeNotification";
 import DraftDropdown from "../components/ui/DraftDropdown";
 
-// Import dnd-kit (lebih ringan dari @hello-pangea/dnd)
+// Import dnd-kit
 import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -44,6 +46,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { motion, AnimatePresence } from "framer-motion";
 
 const COUNTRY_CODES = {
   7: "RU",
@@ -177,7 +180,7 @@ const createDefaultSections = () => [
   },
 ];
 
-// Komponen Section yang bisa di-drag
+// Komponen Section yang bisa di-drag & collapse
 const SortableSection = ({
   section,
   index,
@@ -186,6 +189,10 @@ const SortableSection = ({
   onUpdateItem,
   onRemoveItem,
   onAddItem,
+  isCollapsed,
+  toggleCollapse,
+  onMoveUp,
+  onMoveDown,
 }) => {
   const {
     attributes,
@@ -200,152 +207,266 @@ const SortableSection = ({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 100 : 1,
   };
 
+  const [showActions, setShowActions] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const actionsRef = useRef(null);
+
+  // Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (actionsRef.current && !actionsRef.current.contains(event.target)) {
+        setShowActions(false);
+      }
+    };
+    if (showActions) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showActions]);
+
   return (
-    <div ref={setNodeRef} style={style} className="mb-8">
-      <div className="flex justify-between items-center mb-4">
-        {/* Handle drag (Desktop) */}
-        <div
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing p-1 mr-2 text-gray-400 hover:text-gray-600 md:block hidden"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+    <motion.div
+      ref={setNodeRef}
+      style={{
+        ...style,
+        zIndex: showActions ? 999 : (isDragging ? 1000 : "auto"),
+      }}
+      className="mb-6 relative"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.25 }}
+    >
+      {/* Header Section */}
+      <div className="flex justify-between items-center p-3 md:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+        <div className="flex items-center space-x-2 md:space-x-3 flex-1 min-w-0">
+          {/* Drag Handle - Hidden on Mobile */}
+          {!isMobile && (
+            <div
+              {...attributes}
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </div>
+          )}
+
+          <input
+            type="text"
+            value={section.title}
+            onChange={(e) => onUpdateItem(section.id, "title", e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            className="text-lg md:text-xl font-bold text-gray-800 dark:text-white pb-1 border-b-2 border-purple-600 dark:border-purple-500 bg-transparent focus:outline-none flex-1 min-w-0"
+            placeholder="JUDUL SECTION"
+            style={{ textTransform: "uppercase" }}
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center space-x-1 md:space-x-2 flex-shrink-0 ml-2">
+          <div className="relative" ref={actionsRef}>
+            <button
+              className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowActions(!showActions);
+              }}
+              aria-label="Aksi section"
+            >
+              <MoreVertical size={18} />
+            </button>
+
+            {/* Dropdown Menu dengan z-index tinggi */}
+            <AnimatePresence>
+              {showActions && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+                  style={{ zIndex: 9999 }}
+                >
+                  {/* Move Up Button */}
+                  {index > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMoveUp(index);
+                        setShowActions(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <ArrowUp size={16} />
+                      <span>Pindah Ke Atas</span>
+                    </button>
+                  )}
+
+                  {/* Move Down Button */}
+                  {index < sectionsLength - 1 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMoveDown(index);
+                        setShowActions(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <ArrowDown size={16} />
+                      <span>Pindah Ke Bawah</span>
+                    </button>
+                  )}
+
+                  {/* Divider if there are move buttons */}
+                  {(index > 0 || index < sectionsLength - 1) && (
+                    <div className="border-t border-gray-200 dark:border-gray-700"></div>
+                  )}
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove(section.id);
+                      setShowActions(false);
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm flex items-center space-x-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    <Trash2 size={16} />
+                    <span>Hapus Section</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <button
+            className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleCollapse();
+            }}
+            aria-label={isCollapsed ? "Buka section" : "Tutup section"}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
-          </svg>
+            {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+          </button>
         </div>
-
-        <input
-          type="text"
-          value={section.title}
-          onChange={(e) => onUpdateItem(section.id, "title", e.target.value)}
-          className="text-xl font-bold text-gray-800 dark:text-white pb-2 border-b-2 border-purple-600 dark:border-purple-500 bg-transparent focus:outline-none flex-1"
-          placeholder="JUDUL SECTION"
-          style={{ textTransform: "uppercase" }}
-        />
-
-        {/* Mobile Reorder Buttons */}
-        <div className="flex space-x-1 md:hidden">
-          {index > 0 && (
-            <button
-              onClick={() =>
-                window.dispatchEvent(
-                  new CustomEvent("moveSection", {
-                    detail: { from: index, to: index - 1 },
-                  }),
-                )
-              }
-              className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded"
-              title="Pindah ke atas"
-            >
-              <ArrowUp size={16} />
-            </button>
-          )}
-          {index < sectionsLength - 1 && (
-            <button
-              onClick={() =>
-                window.dispatchEvent(
-                  new CustomEvent("moveSection", {
-                    detail: { from: index, to: index + 1 },
-                  }),
-                )
-              }
-              className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded"
-              title="Pindah ke bawah"
-            >
-              <ArrowDown size={16} />
-            </button>
-          )}
-        </div>
-
-        <button
-          onClick={() => onRemove(section.id)}
-          className="ml-4 text-red-600 dark:text-red-400 hover:text-red-800 transition-colors"
-        >
-          <Trash2 size={20} />
-        </button>
       </div>
 
-      {section.items.map((item) => (
-        <div
-          key={item.id}
-          className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
-        >
-          <div className="flex justify-between items-start mb-3">
-            <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-300">
-              Item
-            </h4>
-            {section.items.length > 1 && (
-              <button
-                onClick={() => onRemoveItem(section.id, item.id)}
-                className="text-red-500 dark:text-red-400 hover:text-red-700 transition-colors"
+      {/* Content Section (collapsed/expanded) */}
+      <AnimatePresence>
+        {!isCollapsed && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden mt-2"
+          >
+            {section.items.map((item) => (
+              <div
+                key={item.id}
+                className="mb-4 p-3 md:p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600"
               >
-                <Trash2 size={16} />
-              </button>
-            )}
-          </div>
-          <div className="space-y-3">
-            <input
-              type="text"
-              value={item.judul}
-              onChange={(e) =>
-                onUpdateItem(section.id, item.id, "judul", e.target.value)
-              }
-              className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-              placeholder="Judul (mis. Nama Institusi / Posisi)"
-            />
-            <input
-              type="text"
-              value={item.subjudul}
-              onChange={(e) =>
-                onUpdateItem(section.id, item.id, "subjudul", e.target.value)
-              }
-              className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-              placeholder="Sub-judul (mis. Jurusan / Perusahaan)"
-            />
-            <input
-              type="text"
-              value={item.tahun}
-              onChange={(e) =>
-                onUpdateItem(section.id, item.id, "tahun", e.target.value)
-              }
-              className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-              placeholder="Tahun / Periode"
-            />
-            <textarea
-              value={item.deskripsi}
-              onChange={(e) =>
-                onUpdateItem(section.id, item.id, "deskripsi", e.target.value)
-              }
-              className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-              rows="3"
-              placeholder="Deskripsi / Detail"
-            />
-          </div>
-        </div>
-      ))}
-
-      <button
-        onClick={() => onAddItem(section.id)}
-        className="w-full py-2 border-2 border-dashed border-purple-300 dark:border-purple-500 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-all flex items-center justify-center space-x-2"
-      >
-        <Plus size={18} />
-        <span>Tambah Item</span>
-      </button>
-    </div>
+                <div className="flex justify-between items-start mb-3">
+                  <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                    Item
+                  </h4>
+                  {section.items.length > 1 && (
+                    <button
+                      onClick={() => onRemoveItem(section.id, item.id)}
+                      className="p-1 text-red-500 dark:text-red-400 hover:text-red-700 transition-colors"
+                      aria-label="Hapus item"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={item.judul}
+                    onChange={(e) =>
+                      onUpdateItem(section.id, item.id, "judul", e.target.value)
+                    }
+                    className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+                    placeholder="Judul (mis. Nama Institusi / Posisi)"
+                  />
+                  <input
+                    type="text"
+                    value={item.subjudul}
+                    onChange={(e) =>
+                      onUpdateItem(
+                        section.id,
+                        item.id,
+                        "subjudul",
+                        e.target.value,
+                      )
+                    }
+                    className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+                    placeholder="Sub-judul (mis. Jurusan / Perusahaan)"
+                  />
+                  <input
+                    type="text"
+                    value={item.tahun}
+                    onChange={(e) =>
+                      onUpdateItem(section.id, item.id, "tahun", e.target.value)
+                    }
+                    className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+                    placeholder="Tahun / Periode"
+                  />
+                  <textarea
+                    value={item.deskripsi}
+                    onChange={(e) =>
+                      onUpdateItem(
+                        section.id,
+                        item.id,
+                        "deskripsi",
+                        e.target.value,
+                      )
+                    }
+                    className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+                    rows="3"
+                    placeholder="Deskripsi / Detail"
+                  />
+                </div>
+              </div>
+            ))}
+            <button
+              onClick={() => onAddItem(section.id)}
+              className="w-full py-2 border-2 border-dashed border-purple-300 dark:border-purple-500 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-all flex items-center justify-center space-x-2 text-sm"
+            >
+              <Plus size={14} />
+              <span>Tambah Item</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 
@@ -358,35 +479,85 @@ const CVGenerator = () => {
   const [draftName, setDraftName] = useState("");
   const [savedDrafts, setSavedDrafts] = useState([]);
   const [selectedDraftId, setSelectedDraftId] = useState("");
-  const [isDraftReady, setIsDraftReady] = useState(false);
-  const [isTemplateOpen, setIsTemplateOpen] = useState(false);
-  const [isDraftOpen, setIsDraftOpen] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const fileInputRef = useRef(null);
   const cvRef = useRef(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Load drafts on mount
+  // State untuk collapse section & personal info
+  const [isPersonalInfoCollapsed, setIsPersonalInfoCollapsed] = useState(() => {
+    const saved = localStorage.getItem("cv_personal_info_collapsed");
+    return saved === "true";
+  });
+
+  const [collapsedSections, setCollapsedSections] = useState(() => {
+    const saved = localStorage.getItem("cv_collapsed_sections");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.warn("Invalid collapsed sections in localStorage");
+      }
+    }
+    return createDefaultSections().reduce((acc, sec) => {
+      acc[sec.id] = false;
+      return acc;
+    }, {});
+  });
+
+  const toggleCollapse = (sectionId) => {
+    setCollapsedSections((prev) => {
+      const newState = {
+        ...prev,
+        [sectionId]: !prev[sectionId],
+      };
+      localStorage.setItem("cv_collapsed_sections", JSON.stringify(newState));
+      return newState;
+    });
+  };
+
+  const togglePersonalInfo = () => {
+    const newState = !isPersonalInfoCollapsed;
+    setIsPersonalInfoCollapsed(newState);
+    localStorage.setItem("cv_personal_info_collapsed", String(newState));
+  };
+
+  // Load drafts and last selected draft on mount
   useEffect(() => {
     const drafts = listDrafts();
     setSavedDrafts(drafts);
-    setDraftName("Draft 1");
+    
+    // Load last selected draft dari localStorage
+    const lastSelectedDraftId = localStorage.getItem("cv_last_selected_draft");
+    
+    if (lastSelectedDraftId && drafts.length > 0) {
+      // Cek apakah draft dengan ID tersebut masih ada
+      const draftExists = drafts.find(d => d.id === lastSelectedDraftId);
+      
+      if (draftExists) {
+        // Load draft tersebut
+        const draftData = loadDraft(lastSelectedDraftId);
+        if (draftData) {
+          applyDraftData(draftData);
+          setSelectedDraftId(lastSelectedDraftId);
+          setDraftName(draftExists.name);
+          console.log("✅ Draft loaded:", draftExists.name);
+        }
+      } else {
+        // Jika draft tidak ada lagi, hapus dari localStorage
+        localStorage.removeItem("cv_last_selected_draft");
+        setDraftName("Draft 1");
+      }
+    } else {
+      setDraftName("Draft 1");
+    }
+    
+    // Set initial load selesai
+    setTimeout(() => setIsInitialLoad(false), 500);
   }, []);
 
-  // Handle mobile reordering
-  useEffect(() => {
-    const handleMoveSection = (e) => {
-      const { from, to } = e.detail;
-      setSections((prev) => {
-        const newSections = [...prev];
-        const [moved] = newSections.splice(from, 1);
-        newSections.splice(to, 0, moved);
-        return newSections;
-      });
-    };
-
-    window.addEventListener("moveSection", handleMoveSection);
-    return () => window.removeEventListener("moveSection", handleMoveSection);
-  }, []);
+  const [isTemplateOpen, setIsTemplateOpen] = useState(false);
+  const [isDraftOpen, setIsDraftOpen] = useState(false);
 
   const toggleTemplate = () => {
     setIsTemplateOpen((prev) => !prev);
@@ -403,56 +574,6 @@ const CVGenerator = () => {
     template,
     foto,
   });
-
-  // Tambahkan ini di dalam CVGenerator, setelah fungsi-fungsi lain seperti handleFotoChange, dll.
-  const handleSaveDraft = () => {
-    const trimmedName = draftName.trim();
-    if (!trimmedName) {
-      toast.error("Nama draft wajib diisi!", { duration: 3000 });
-      return;
-    }
-
-    const currentData = getCurrentDraftData();
-
-    // Cek apakah sudah ada draft dengan nama yang sama
-    const existingDraft = savedDrafts.find(
-      (draft) => draft.name.toLowerCase() === trimmedName.toLowerCase(),
-    );
-
-    let draftIdToUse = null;
-    if (existingDraft) {
-      // Jika sudah ada, update draft tersebut
-      draftIdToUse = existingDraft.id;
-    } else {
-      // Jika belum ada, buat ID baru
-      draftIdToUse = `draft_${Date.now()}`;
-    }
-
-    const saved = saveDraft(currentData, {
-      id: draftIdToUse,
-      name: trimmedName,
-    });
-
-    if (!saved) {
-      toast.error("Gagal menyimpan draft!", { duration: 3000 });
-      return;
-    }
-
-    // Refresh daftar draft
-    const updatedDrafts = listDrafts();
-    setSavedDrafts(updatedDrafts);
-
-    // Set sebagai draft aktif
-    setSelectedDraftId(draftIdToUse);
-    setDraftName(trimmedName);
-
-    toast.success(
-      existingDraft
-        ? "Draft berhasil diperbarui!"
-        : "Draft baru berhasil disimpan!",
-      { duration: 3000 },
-    );
-  };
 
   const resetEditor = () => {
     setPersonalInfo(DEFAULT_PERSONAL_INFO);
@@ -490,6 +611,18 @@ const CVGenerator = () => {
     return drafts;
   };
 
+  // Modified: Wrapper untuk setSelectedDraftId yang juga menyimpan ke localStorage
+  const updateSelectedDraft = (draftId) => {
+    setSelectedDraftId(draftId);
+    if (draftId) {
+      localStorage.setItem("cv_last_selected_draft", draftId);
+      console.log("✅ Saved to localStorage:", draftId);
+    } else {
+      localStorage.removeItem("cv_last_selected_draft");
+      console.log("❌ Removed from localStorage");
+    }
+  };
+
   const addSection = () => {
     const newSection = {
       id: Date.now(),
@@ -498,10 +631,24 @@ const CVGenerator = () => {
       items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
     };
     setSections([...sections, newSection]);
+    setCollapsedSections((prev) => {
+      const newState = {
+        ...prev,
+        [newSection.id]: false,
+      };
+      localStorage.setItem("cv_collapsed_sections", JSON.stringify(newState));
+      return newState;
+    });
   };
 
   const removeSection = (sectionId) => {
     setSections(sections.filter((section) => section.id !== sectionId));
+    setCollapsedSections((prev) => {
+      const newState = { ...prev };
+      delete newState[sectionId];
+      localStorage.setItem("cv_collapsed_sections", JSON.stringify(newState));
+      return newState;
+    });
   };
 
   const updateSection = (sectionId, field, value) => {
@@ -546,11 +693,9 @@ const CVGenerator = () => {
 
   const updateItem = (sectionId, itemId, field, value) => {
     if (typeof itemId === "string") {
-      // Ini adalah update untuk title section
       updateSection(sectionId, field, value);
       return;
     }
-
     setSections(
       sections.map((section) => {
         if (section.id === sectionId) {
@@ -564,6 +709,32 @@ const CVGenerator = () => {
         return section;
       }),
     );
+  };
+
+  // Move section up
+  const moveSectionUp = (index) => {
+    if (index > 0) {
+      const newSections = [...sections];
+      [newSections[index - 1], newSections[index]] = [
+        newSections[index],
+        newSections[index - 1],
+      ];
+      setSections(newSections);
+      toast.success("Section dipindahkan ke atas", { duration: 2000 });
+    }
+  };
+
+  // Move section down
+  const moveSectionDown = (index) => {
+    if (index < sections.length - 1) {
+      const newSections = [...sections];
+      [newSections[index], newSections[index + 1]] = [
+        newSections[index + 1],
+        newSections[index],
+      ];
+      setSections(newSections);
+      toast.success("Section dipindahkan ke bawah", { duration: 2000 });
+    }
   };
 
   const handleFotoChange = (e) => {
@@ -610,6 +781,49 @@ const CVGenerator = () => {
 
   const handleDragStart = (event) => {
     setActiveId(event.active.id);
+  };
+
+  const handleSaveDraft = () => {
+    const trimmedName = draftName.trim();
+    if (!trimmedName) {
+      toast.error("Nama draft wajib diisi!", { duration: 3000 });
+      return;
+    }
+
+    const currentData = getCurrentDraftData();
+
+    const existingDraft = savedDrafts.find(
+      (draft) => draft.name.toLowerCase() === trimmedName.toLowerCase(),
+    );
+
+    let draftIdToUse = null;
+    if (existingDraft) {
+      draftIdToUse = existingDraft.id;
+    } else {
+      draftIdToUse = `draft_${Date.now()}`;
+    }
+
+    const saved = saveDraft(currentData, {
+      id: draftIdToUse,
+      name: trimmedName,
+    });
+
+    if (!saved) {
+      toast.error("Gagal menyimpan draft!", { duration: 3000 });
+      return;
+    }
+
+    const updatedDrafts = listDrafts();
+    setSavedDrafts(updatedDrafts);
+    
+    // Gunakan wrapper function untuk update dan save ke localStorage
+    updateSelectedDraft(draftIdToUse);
+    setDraftName(trimmedName);
+
+    toast.success(
+      existingDraft ? "Draft berhasil diperbarui!" : "Draft baru berhasil disimpan!",
+      { duration: 3000 },
+    );
   };
 
   const handleDownloadDOCX = () => {
@@ -886,29 +1100,29 @@ const CVGenerator = () => {
   const formattedPhonePreview = formatPhoneNumber(personalInfo.telepon);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="space-y-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 relative">
-          <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6 flex items-center">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 px-2 md:px-0">
+      <div className="space-y-4 md:space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 md:p-8 relative">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white mb-4 md:mb-6 flex items-center">
             <Briefcase
-              className="mr-3 text-purple-600 dark:text-purple-400"
-              size={32}
+              className="mr-2 md:mr-3 text-purple-600 dark:text-purple-400"
+              size={28}
             />
             CV Generator
           </h2>
 
           {/* Template Selection - Collapsible */}
-          <div className="mb-6 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden relative z-10">
+          <div className="mb-4 md:mb-6 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden relative z-10">
             <button
               onClick={toggleTemplate}
-              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+              className="w-full px-3 md:px-4 py-2.5 md:py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
             >
               <div className="flex items-center space-x-2">
                 <Palette
                   className="text-purple-600 dark:text-purple-400"
-                  size={20}
+                  size={18}
                 />
-                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                <span className="font-semibold text-sm md:text-base text-gray-700 dark:text-gray-300">
                   Pilih Template CV
                 </span>
               </div>
@@ -920,7 +1134,7 @@ const CVGenerator = () => {
               >
                 <ChevronDown
                   className="text-gray-600 dark:text-gray-400"
-                  size={20}
+                  size={18}
                 />
               </div>
             </button>
@@ -931,7 +1145,7 @@ const CVGenerator = () => {
                 opacity: isTemplateOpen ? 1 : 0,
               }}
             >
-              <div className="p-4 grid grid-cols-1 gap-3">
+              <div className="p-3 md:p-4 grid grid-cols-1 gap-2 md:gap-3">
                 {[
                   {
                     id: "minimal",
@@ -958,7 +1172,7 @@ const CVGenerator = () => {
                         : "border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
                     }`}
                   >
-                    <div className="font-bold text-gray-800 dark:text-white">
+                    <div className="font-bold text-sm md:text-base text-gray-800 dark:text-white">
                       {tpl.name}
                     </div>
                     <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
@@ -971,17 +1185,17 @@ const CVGenerator = () => {
           </div>
 
           {/* Draft Section - Collapsible */}
-          <div className="mb-6 border border-gray-200 dark:border-gray-600 rounded-xl relative z-[9999]">
+          <div className="mb-4 md:mb-6 border border-gray-200 dark:border-gray-600 rounded-xl relative z-[9999]">
             <button
               onClick={toggleDraft}
-              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-xl"
+              className="w-full px-3 md:px-4 py-2.5 md:py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-xl"
             >
               <div className="flex items-center space-x-2">
                 <FolderOpen
                   className="text-blue-600 dark:text-blue-400"
-                  size={20}
+                  size={18}
                 />
-                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                <span className="font-semibold text-sm md:text-base text-gray-700 dark:text-gray-300">
                   Kelola Draft
                 </span>
               </div>
@@ -993,7 +1207,7 @@ const CVGenerator = () => {
               >
                 <ChevronDown
                   className="text-gray-600 dark:text-gray-400"
-                  size={20}
+                  size={18}
                 />
               </div>
             </button>
@@ -1005,7 +1219,7 @@ const CVGenerator = () => {
                 overflow: isDraftOpen ? "visible" : "hidden",
               }}
             >
-              <div className="p-4">
+              <div className="p-3 md:p-4">
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                     Nama Draft
@@ -1014,26 +1228,28 @@ const CVGenerator = () => {
                     type="text"
                     value={draftName}
                     onChange={(e) => setDraftName(e.target.value)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 transition-all"
+                    className="w-full px-3 md:px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 transition-all text-sm md:text-base"
                     placeholder="Contoh: CV Marketing 2026"
                   />
                 </div>
-                <div className="flex items-center gap-2 mt-4 relative z-[99999]">
-                  <DraftDropdown
-                    savedDrafts={savedDrafts}
-                    selectedDraftId={selectedDraftId}
-                    setSelectedDraftId={setSelectedDraftId}
-                    setDraftName={setDraftName}
-                    loadDraft={loadDraft}
-                    applyDraftData={applyDraftData}
-                    clearDraft={clearDraft}
-                    resetEditor={resetEditor}
-                    refreshDrafts={refreshDrafts}
-                    formatDraftTimestamp={formatDraftTimestamp}
-                  />
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-4 relative z-[99999]">
+                  <div className="flex-1">
+                    <DraftDropdown
+                      savedDrafts={savedDrafts}
+                      selectedDraftId={selectedDraftId}
+                      setSelectedDraftId={updateSelectedDraft}
+                      setDraftName={setDraftName}
+                      loadDraft={loadDraft}
+                      applyDraftData={applyDraftData}
+                      clearDraft={clearDraft}
+                      resetEditor={resetEditor}
+                      refreshDrafts={refreshDrafts}
+                      formatDraftTimestamp={formatDraftTimestamp}
+                    />
+                  </div>
                   <button
                     onClick={handleSaveDraft}
-                    className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"
+                    className="flex items-center justify-center space-x-1 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 text-sm md:text-base whitespace-nowrap"
                   >
                     <Save size={16} />
                     <span>Simpan</span>
@@ -1043,148 +1259,196 @@ const CVGenerator = () => {
             </div>
           </div>
 
-          <div className="mb-8">
-            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 pb-2 border-b-2 border-purple-600 dark:border-purple-500">
-              Informasi Pribadi
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Foto Profil (Opsional)
-                </label>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  onChange={handleFotoChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+          {/* Informasi Pribadi + Deskripsi Diri (Collapsible) */}
+          <div className="mb-6 md:mb-8">
+            <div
+              className="flex justify-between items-center p-3 md:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer"
+              onClick={togglePersonalInfo}
+            >
+              <div className="flex items-center space-x-2">
+                <User 
+                  className="text-purple-600 dark:text-purple-400" 
+                  size={20} 
                 />
-                {foto && (
-                  <div className="mt-3 relative inline-block">
-                    <img
-                      src={foto}
-                      alt="Preview Foto"
-                      className="w-20 h-20 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
-                    />
-                    <button
-                      onClick={handleHapusFoto}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
-                      aria-label="Hapus foto"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                )}
+                <h3 className="text-lg md:text-xl font-bold text-gray-800 dark:text-white">
+                  Informasi Pribadi
+                </h3>
               </div>
-
-              <input
-                type="text"
-                value={personalInfo.nama}
-                onChange={(e) =>
-                  setPersonalInfo({ ...personalInfo, nama: e.target.value })
-                }
-                className={`w-full px-4 py-3 rounded-lg border ${
-                  !personalInfo.nama.trim()
-                    ? "border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
-                placeholder="Nama Lengkap"
-                style={{ textTransform: "uppercase" }}
-              />
-              {!personalInfo.nama.trim() && (
-                <p className="text-sm text-red-600">Wajib diisi</p>
-              )}
-
-              <input
-                type="email"
-                value={personalInfo.email}
-                onChange={(e) =>
-                  setPersonalInfo({ ...personalInfo, email: e.target.value })
-                }
-                className={`w-full px-4 py-3 rounded-lg border ${
-                  !personalInfo.email.trim()
-                    ? "border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
-                placeholder="Email"
-              />
-              {!personalInfo.email.trim() && (
-                <p className="text-sm text-red-600">Wajib diisi</p>
-              )}
-
-              <input
-                type="url"
-                value={personalInfo.link}
-                onChange={(e) =>
-                  setPersonalInfo({ ...personalInfo, link: e.target.value })
-                }
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                placeholder="Link Portfolio / LinkedIn / GitHub"
-              />
-
-              <input
-                type="tel"
-                value={personalInfo.telepon}
-                onChange={(e) =>
-                  setPersonalInfo({ ...personalInfo, telepon: e.target.value })
-                }
-                className={`w-full px-4 py-3 rounded-lg border ${
-                  !personalInfo.telepon.trim()
-                    ? "border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
-                placeholder="Nomor Telepon"
-              />
-              {!personalInfo.telepon.trim() && (
-                <p className="text-sm text-red-600">Wajib diisi</p>
-              )}
-
-              <input
-                type="text"
-                value={personalInfo.alamat}
-                onChange={(e) =>
-                  setPersonalInfo({ ...personalInfo, alamat: e.target.value })
-                }
-                className={`w-full px-4 py-3 rounded-lg border ${
-                  !personalInfo.alamat.trim()
-                    ? "border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
-                placeholder="Alamat"
-              />
-              {!personalInfo.alamat.trim() && (
-                <p className="text-sm text-red-600">Wajib diisi</p>
-              )}
-
-              <input
-                type="text"
-                value={personalInfo.kota}
-                onChange={(e) =>
-                  setPersonalInfo({ ...personalInfo, kota: e.target.value })
-                }
-                className={`w-full px-4 py-3 rounded-lg border ${
-                  !personalInfo.kota.trim()
-                    ? "border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
-                placeholder="Kota, Provinsi"
-              />
-              {!personalInfo.kota.trim() && (
-                <p className="text-sm text-red-600">Wajib diisi</p>
-              )}
+              <div className="flex items-center space-x-2">
+                <button
+                  className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePersonalInfo();
+                  }}
+                  aria-label={
+                    isPersonalInfoCollapsed
+                      ? "Buka informasi pribadi"
+                      : "Tutup informasi pribadi"
+                  }
+                >
+                  {isPersonalInfoCollapsed ? (
+                    <ChevronDown size={18} />
+                  ) : (
+                    <ChevronUp size={18} />
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="mb-10">
-            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 pb-2 border-b-2 border-purple-600 dark:border-purple-500">
-              Deskripsi Diri (Ringkasan Profil)
-            </h3>
-            <textarea
-              value={profileSummary}
-              onChange={(e) => setProfileSummary(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 min-h-[120px]"
-              placeholder="Contoh: Lulusan S1..."
-            />
+            <AnimatePresence>
+              {!isPersonalInfoCollapsed && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="overflow-hidden pt-3 md:pt-4"
+                >
+                  {/* Foto Profil */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Foto Profil (Opsional)
+                    </label>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      onChange={handleFotoChange}
+                      className="w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base"
+                    />
+                    {foto && (
+                      <div className="mt-3 relative inline-block">
+                        <img
+                          src={foto}
+                          alt="Preview Foto"
+                          className="w-20 h-20 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
+                        />
+                        <button
+                          onClick={handleHapusFoto}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
+                          aria-label="Hapus foto"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Field Wajib */}
+                  <div className="space-y-3 md:space-y-4">
+                    <input
+                      type="text"
+                      value={personalInfo.nama}
+                      onChange={(e) =>
+                        setPersonalInfo({ ...personalInfo, nama: e.target.value })
+                      }
+                      className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
+                        !personalInfo.nama.trim()
+                          ? "border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
+                      placeholder="Nama Lengkap"
+                      style={{ textTransform: "uppercase" }}
+                    />
+                    {!personalInfo.nama.trim() && (
+                      <p className="text-xs md:text-sm text-red-600">Wajib diisi</p>
+                    )}
+
+                    <input
+                      type="email"
+                      value={personalInfo.email}
+                      onChange={(e) =>
+                        setPersonalInfo({ ...personalInfo, email: e.target.value })
+                      }
+                      className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
+                        !personalInfo.email.trim()
+                          ? "border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
+                      placeholder="Email"
+                    />
+                    {!personalInfo.email.trim() && (
+                      <p className="text-xs md:text-sm text-red-600">Wajib diisi</p>
+                    )}
+
+                    <input
+                      type="url"
+                      value={personalInfo.link}
+                      onChange={(e) =>
+                        setPersonalInfo({ ...personalInfo, link: e.target.value })
+                      }
+                      className="w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base"
+                      placeholder="Link Portfolio / LinkedIn / GitHub"
+                    />
+
+                    <input
+                      type="tel"
+                      value={personalInfo.telepon}
+                      onChange={(e) =>
+                        setPersonalInfo({ ...personalInfo, telepon: e.target.value })
+                      }
+                      className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
+                        !personalInfo.telepon.trim()
+                          ? "border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
+                      placeholder="Nomor Telepon"
+                    />
+                    {!personalInfo.telepon.trim() && (
+                      <p className="text-xs md:text-sm text-red-600">Wajib diisi</p>
+                    )}
+
+                    <input
+                      type="text"
+                      value={personalInfo.alamat}
+                      onChange={(e) =>
+                        setPersonalInfo({ ...personalInfo, alamat: e.target.value })
+                      }
+                      className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
+                        !personalInfo.alamat.trim()
+                          ? "border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
+                      placeholder="Alamat"
+                    />
+                    {!personalInfo.alamat.trim() && (
+                      <p className="text-xs md:text-sm text-red-600">Wajib diisi</p>
+                    )}
+
+                    <input
+                      type="text"
+                      value={personalInfo.kota}
+                      onChange={(e) =>
+                        setPersonalInfo({ ...personalInfo, kota: e.target.value })
+                      }
+                      className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
+                        !personalInfo.kota.trim()
+                          ? "border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
+                      placeholder="Kota, Provinsi"
+                    />
+                    {!personalInfo.kota.trim() && (
+                      <p className="text-xs md:text-sm text-red-600">Wajib diisi</p>
+                    )}
+
+                    {/* Deskripsi Diri (Ringkasan Profil) */}
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+                      <h4 className="text-base md:text-lg font-bold text-gray-800 dark:text-white mb-2">
+                        Deskripsi Diri (Ringkasan Profil)
+                      </h4>
+                      <textarea
+                        value={profileSummary}
+                        onChange={(e) => setProfileSummary(e.target.value)}
+                        className="w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 min-h-[100px] md:min-h-[120px] text-sm md:text-base"
+                        placeholder="Contoh: Lulusan S1..."
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Section Reordering */}
@@ -1207,13 +1471,17 @@ const CVGenerator = () => {
                   onUpdateItem={updateItem}
                   onRemoveItem={removeItem}
                   onAddItem={addItem}
+                  isCollapsed={collapsedSections[section.id] || false}
+                  toggleCollapse={() => toggleCollapse(section.id)}
+                  onMoveUp={moveSectionUp}
+                  onMoveDown={moveSectionDown}
                 />
               ))}
             </SortableContext>
             <DragOverlay>
               {activeId ? (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 w-full max-w-2xl">
-                  <div className="text-xl font-bold text-gray-800 dark:text-white">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 md:p-6 w-full max-w-2xl">
+                  <div className="text-lg md:text-xl font-bold text-gray-800 dark:text-white">
                     Sedang Dipindahkan...
                   </div>
                 </div>
@@ -1223,34 +1491,34 @@ const CVGenerator = () => {
 
           <button
             onClick={addSection}
-            className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center space-x-2 transform hover:scale-[1.02]"
+            className="w-full py-2.5 md:py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center space-x-2 transform hover:scale-[1.02] text-sm md:text-base"
           >
-            <Plus size={20} />
+            <Plus size={18} />
             <span>Tambah Section Baru</span>
           </button>
         </div>
       </div>
 
       <div className="lg:sticky lg:top-24 h-fit">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 md:p-8">
+          <div className="flex justify-between items-center mb-4 md:mb-6 gap-2">
+            <h3 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">
               Preview CV
             </h3>
-            <div className="flex space-x-2">
+            <div className="flex space-x-1.5 md:space-x-2">
               <button
                 onClick={handleDownloadCV}
-                className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105"
+                className="flex items-center space-x-1 md:space-x-2 bg-green-600 text-white px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 text-xs md:text-base"
               >
-                <Download size={18} />
-                <span>PDF</span>
+                <Download size={16} />
+                <span className="hidden sm:inline">PDF</span>
               </button>
               <button
                 onClick={handleDownloadDOCX}
-                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"
+                className="flex items-center space-x-1 md:space-x-2 bg-blue-600 text-white px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 text-xs md:text-base"
               >
-                <FileText size={18} />
-                <span>Word</span>
+                <FileText size={16} />
+                <span className="hidden sm:inline">Word</span>
               </button>
             </div>
           </div>
@@ -1259,26 +1527,26 @@ const CVGenerator = () => {
             ref={cvRef}
             className={
               template === "elegant"
-                ? ""
-                : `p-8 min-h-[800px] ${getTemplateClass()}`
+                ? "p-4 md:p-8 min-h-[600px] md:min-h-[800px]"
+                : `p-4 md:p-8 min-h-[600px] md:min-h-[800px] ${getTemplateClass()}`
             }
             style={{ fontFamily: "'Times New Roman', Times, serif" }}
           >
-            <div className="text-center mb-6 pb-6">
+            <div className="text-center mb-4 md:mb-6 pb-4 md:pb-6">
               {foto ? (
-                <div className="flex items-start gap-6">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 md:gap-6">
                   <div className="flex-shrink-0 relative">
                     <img
                       src={foto}
                       alt="Foto Profil"
-                      className="w-24 h-24 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
+                      className="w-20 h-20 md:w-24 md:h-24 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
                     />
                   </div>
-                  <div className="flex-1">
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                  <div className="flex-1 text-center sm:text-left">
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
                       {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
                     </h1>
-                    <div className="text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
+                    <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center sm:justify-start gap-1">
                       {(() => {
                         const contactItems = [];
                         if (personalInfo.email)
@@ -1290,7 +1558,7 @@ const CVGenerator = () => {
                               href={personalInfo.link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+                              className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 break-all"
                             >
                               {personalInfo.link}
                             </a>,
@@ -1307,7 +1575,7 @@ const CVGenerator = () => {
                         ));
                       })()}
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-2">
                       {personalInfo.alamat || "Alamat"}
                       {personalInfo.kota && `, ${personalInfo.kota}`}
                     </p>
@@ -1315,10 +1583,10 @@ const CVGenerator = () => {
                 </div>
               ) : (
                 <>
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
                     {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
                   </h1>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
+                  <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
                     {(() => {
                       const contactItems = [];
                       if (personalInfo.email)
@@ -1330,7 +1598,7 @@ const CVGenerator = () => {
                             href={personalInfo.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+                            className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 break-all"
                           >
                             {personalInfo.link}
                           </a>,
@@ -1347,7 +1615,7 @@ const CVGenerator = () => {
                       ));
                     })()}
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-2">
                     {personalInfo.alamat || "Alamat"}
                     {personalInfo.kota && `, ${personalInfo.kota}`}
                   </p>
@@ -1357,38 +1625,38 @@ const CVGenerator = () => {
 
             {profileSummary && (
               <div className="mb-2 text-justify">
-                <p className="leading-6 text-gray-800 dark:text-gray-300">
+                <p className="leading-5 md:leading-6 text-sm md:text-base text-gray-800 dark:text-gray-300">
                   {profileSummary}
                 </p>
               </div>
             )}
 
             {sections.map((section) => (
-              <div key={section.id} className="mb-6">
-                <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-3 mb-4">
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              <div key={section.id} className="mb-4 md:mb-6">
+                <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-2 md:pt-3 mb-3 md:mb-4">
+                  <h2 className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
                     {section.title.toUpperCase() || "SECTION TITLE"}
                   </h2>
                 </div>
                 {section.items.map((item) => (
-                  <div key={item.id} className="mb-4">
+                  <div key={item.id} className="mb-3 md:mb-4">
                     {item.judul && (
-                      <h3 className="font-bold text-gray-900 dark:text-white">
+                      <h3 className="font-bold text-sm md:text-base text-gray-900 dark:text-white">
                         {item.judul}
                       </h3>
                     )}
                     {item.subjudul && (
-                      <p className="text-sm text-gray-700 dark:text-gray-400">
+                      <p className="text-xs md:text-sm text-gray-700 dark:text-gray-400">
                         {item.subjudul}
                       </p>
                     )}
                     {item.tahun && (
-                      <p className="text-sm text-gray-600 dark:text-gray-500 italic">
+                      <p className="text-xs md:text-sm text-gray-600 dark:text-gray-500 italic">
                         {item.tahun}
                       </p>
                     )}
                     {item.deskripsi && (
-                      <p className="text-sm text-gray-700 dark:text-gray-400 mt-1 whitespace-pre-wrap">
+                      <p className="text-xs md:text-sm text-gray-700 dark:text-gray-400 mt-1 whitespace-pre-wrap">
                         {item.deskripsi}
                       </p>
                     )}
