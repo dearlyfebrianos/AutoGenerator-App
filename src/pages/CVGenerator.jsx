@@ -15,6 +15,8 @@ import {
   ArrowUp,
   ArrowDown,
   User,
+  Check,
+  Clock,
 } from "lucide-react";
 import html2pdf from "html2pdf.js";
 import { toast } from "react-hot-toast";
@@ -36,7 +38,6 @@ import {
 } from "../utils/draftManager";
 import { showBadgeNotification } from "../components/ui/BadgeNotification";
 import DraftDropdown from "../components/ui/DraftDropdown";
-// Import dnd-kit
 import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -46,6 +47,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion, AnimatePresence } from "framer-motion";
+import SessionRecoveryModal from './../components/ui/SessionRecoveryModal';
+
 const COUNTRY_CODES = {
   7: "RU",
   1: "US",
@@ -61,6 +64,7 @@ const COUNTRY_CODES = {
   91: "IN",
   62: "ID",
 };
+
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
   const digitsOnly = phone.replace(/\D/g, "");
@@ -152,6 +156,7 @@ const formatPhoneNumber = (phone) => {
   }
   return phone;
 };
+
 const DEFAULT_PERSONAL_INFO = {
   nama: "",
   email: "",
@@ -160,6 +165,7 @@ const DEFAULT_PERSONAL_INFO = {
   kota: "",
   link: "",
 };
+
 const createDefaultSections = () => [
   {
     id: 1,
@@ -174,7 +180,37 @@ const createDefaultSections = () => [
     items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
   },
 ];
-// Komponen Section yang bisa di-drag & collapse
+
+const AutoSaveIndicator = ({ status }) => {
+  const icons = {
+    saved: <Check size={14} className="text-green-500" />,
+    saving: <Clock size={14} className="text-blue-500 animate-pulse" />,
+    idle: null,
+  };
+
+  const messages = {
+    saved: "Tersimpan",
+    saving: "Menyimpan...",
+    idle: "",
+  };
+
+  if (status === "idle") return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="flex items-center space-x-1 text-xs font-medium"
+    >
+      {icons[status]}
+      <span className={status === "saved" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}>
+        {messages[status]}
+      </span>
+    </motion.div>
+  );
+};
+
 const SortableSection = ({
   section,
   index,
@@ -195,16 +231,23 @@ const SortableSection = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: section.id });
+  } = useSortable({ 
+    id: section.id,
+    activationConstraint: {
+      distance: 8,
+    }
+  });
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
   const [showActions, setShowActions] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const actionsRef = useRef(null);
-  // Detect mobile screen
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -213,7 +256,7 @@ const SortableSection = ({
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-  // Close dropdown when clicking outside
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (actionsRef.current && !actionsRef.current.contains(event.target)) {
@@ -226,6 +269,7 @@ const SortableSection = ({
         document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showActions]);
+
   return (
     <motion.div
       ref={setNodeRef}
@@ -239,26 +283,18 @@ const SortableSection = ({
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.25 }}
     >
-      {/* Header Section */}
       <div className="flex justify-between items-center p-3 md:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
         <div className="flex items-center space-x-2 md:space-x-3 flex-1 min-w-0">
-          {/* Drag Handle - Hidden on Mobile */}
           {!isMobile && (
             <div
               {...attributes}
               {...listeners}
-              className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
-              onMouseDown={(e) => {
-                // Only allow drag if NOT clicking on input
-                const target = e.target;
-                if (target.tagName === "INPUT") {
-                  e.stopPropagation();
-                }
-              }}
+              className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0 transition-colors"
+              style={{ touchAction: 'none' }}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
+                className="h-5 w-5 pointer-events-none"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -272,26 +308,29 @@ const SortableSection = ({
               </svg>
             </div>
           )}
-          {/* CRITICAL FIX: Input with proper isolation from drag */}
+          
           <input
             type="text"
             value={section.title}
-            onChange={(e) =>
-              onUpdateItem(section.id, null, "title", e.target.value)
-            }
+            onChange={(e) => {
+              e.stopPropagation();
+              onUpdateItem(section.id, null, "title", e.target.value);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
             onFocus={(e) => {
-              // Close dropdown when input is focused
               setShowActions(false);
             }}
             onClick={(e) => {
               e.stopPropagation();
             }}
-            className="text-lg md:text-xl font-bold text-gray-800 dark:text-white pb-1 border-b-2 border-purple-600 dark:border-purple-500 bg-transparent focus:outline-none flex-1 min-w-0"
+            className="text-lg md:text-xl font-bold text-gray-800 dark:text-white pb-1 border-b-2 border-purple-600 dark:border-purple-500 bg-transparent focus:outline-none focus:border-purple-700 dark:focus:border-purple-400 flex-1 min-w-0 transition-colors"
             placeholder="JUDUL SECTION"
             style={{ textTransform: "uppercase" }}
           />
         </div>
-        {/* Action Buttons */}
+        
         <div className="flex items-center space-x-1 md:space-x-2 flex-shrink-0 ml-2">
           <div className="relative" ref={actionsRef}>
             <button
@@ -304,7 +343,7 @@ const SortableSection = ({
             >
               <MoreVertical size={18} />
             </button>
-            {/* Dropdown Menu - POSITIONED TO NOT COVER INPUT */}
+            
             <AnimatePresence>
               {showActions && (
                 <motion.div
@@ -315,10 +354,9 @@ const SortableSection = ({
                   className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
                   style={{
                     zIndex: 9999,
-                    pointerEvents: "auto", // Ensure dropdown can receive clicks
+                    pointerEvents: "auto",
                   }}
                 >
-                  {/* Move Up Button */}
                   {index > 0 && (
                     <button
                       onClick={(e) => {
@@ -332,7 +370,7 @@ const SortableSection = ({
                       <span>Pindah Ke Atas</span>
                     </button>
                   )}
-                  {/* Move Down Button */}
+                  
                   {index < sectionsLength - 1 && (
                     <button
                       onClick={(e) => {
@@ -346,11 +384,11 @@ const SortableSection = ({
                       <span>Pindah Ke Bawah</span>
                     </button>
                   )}
-                  {/* Divider if there are move buttons */}
+                  
                   {(index > 0 || index < sectionsLength - 1) && (
                     <div className="border-t border-gray-200 dark:border-gray-700"></div>
                   )}
-                  {/* Delete Button */}
+                  
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -366,6 +404,7 @@ const SortableSection = ({
               )}
             </AnimatePresence>
           </div>
+          
           <button
             className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
             onClick={(e) => {
@@ -378,7 +417,7 @@ const SortableSection = ({
           </button>
         </div>
       </div>
-      {/* Content Section (collapsed/expanded) */}
+      
       <AnimatePresence>
         {!isCollapsed && (
           <motion.div
@@ -400,7 +439,7 @@ const SortableSection = ({
                   {section.items.length > 1 && (
                     <button
                       onClick={() => onRemoveItem(section.id, item.id)}
-                      className="p-1 text-red-500 dark:text-red-400 hover:text-red-700 transition-colors"
+                      className="p-1 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
                       aria-label="Hapus item"
                     >
                       <Trash2 size={16} />
@@ -470,6 +509,7 @@ const SortableSection = ({
     </motion.div>
   );
 };
+
 const CVGenerator = () => {
   const [personalInfo, setPersonalInfo] = useState(DEFAULT_PERSONAL_INFO);
   const [profileSummary, setProfileSummary] = useState("");
@@ -483,11 +523,19 @@ const CVGenerator = () => {
   const fileInputRef = useRef(null);
   const cvRef = useRef(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  // State untuk collapse section & personal info
+  
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [recoveryData, setRecoveryData] = useState(null);
+  
+  const [autoSaveStatus, setAutoSaveStatus] = useState("idle");
+  const autoSaveTimeoutRef = useRef(null);
+  const lastSavedDataRef = useRef(null);
+
   const [isPersonalInfoCollapsed, setIsPersonalInfoCollapsed] = useState(() => {
     const saved = localStorage.getItem("cv_personal_info_collapsed");
     return saved === "true";
   });
+
   const [collapsedSections, setCollapsedSections] = useState(() => {
     const saved = localStorage.getItem("cv_collapsed_sections");
     if (saved) {
@@ -502,6 +550,7 @@ const CVGenerator = () => {
       return acc;
     }, {});
   });
+
   const toggleCollapse = (sectionId) => {
     setCollapsedSections((prev) => {
       const newState = {
@@ -512,98 +561,13 @@ const CVGenerator = () => {
       return newState;
     });
   };
+
   const togglePersonalInfo = () => {
     const newState = !isPersonalInfoCollapsed;
     setIsPersonalInfoCollapsed(newState);
     localStorage.setItem("cv_personal_info_collapsed", String(newState));
   };
-  // Auto-save effect - simpan otomatis setiap ada perubahan jika draft sudah dipilih
-  useEffect(() => {
-    // Skip jika masih initial load atau tidak ada draft yang dipilih
-    if (isInitialLoad || !selectedDraftId) {
-      return;
-    }
-    // Debounce auto-save untuk menghindari terlalu banyak save dan conflict dengan input
-    const timeoutId = setTimeout(() => {
-      // CRITICAL FIX: Cek apakah ada input/textarea yang sedang di-focus
-      const activeElement = document.activeElement;
-      const isInputFocused =
-        activeElement &&
-        (activeElement.tagName === "INPUT" ||
-          activeElement.tagName === "TEXTAREA");
 
-      // Skip auto-save jika user sedang mengetik di input/textarea
-      if (isInputFocused) {
-        console.log("⏸️ Auto-save skipped: user is typing");
-        return;
-      }
-      const currentData = getCurrentDraftData();
-      const currentDraft = savedDrafts.find((d) => d.id === selectedDraftId);
-
-      if (currentDraft) {
-        // Auto-save tanpa toast notification agar tidak mengganggu
-        const saved = saveDraft(currentData, {
-          id: selectedDraftId,
-          name: currentDraft.name,
-        });
-
-        if (saved) {
-          console.log("💾 Auto-saved:", currentDraft.name);
-        }
-      }
-    }, 3000); // Delay 3 detik setelah perubahan terakhir
-    return () => clearTimeout(timeoutId);
-  }, [
-    personalInfo,
-    profileSummary,
-    sections,
-    template,
-    foto,
-    selectedDraftId,
-    isInitialLoad,
-    savedDrafts,
-  ]);
-  // Load drafts and last selected draft on mount
-  useEffect(() => {
-    const drafts = listDrafts();
-    setSavedDrafts(drafts);
-
-    // Load last selected draft dari localStorage
-    const lastSelectedDraftId = localStorage.getItem("cv_last_selected_draft");
-
-    if (lastSelectedDraftId && drafts.length > 0) {
-      // Cek apakah draft dengan ID tersebut masih ada
-      const draftExists = drafts.find((d) => d.id === lastSelectedDraftId);
-
-      if (draftExists) {
-        // Load draft tersebut
-        const draftData = loadDraft(lastSelectedDraftId);
-        if (draftData) {
-          applyDraftData(draftData);
-          setSelectedDraftId(lastSelectedDraftId);
-          setDraftName(draftExists.name);
-          console.log("✅ Draft loaded:", draftExists.name);
-        }
-      } else {
-        // Jika draft tidak ada lagi, hapus dari localStorage
-        localStorage.removeItem("cv_last_selected_draft");
-        setDraftName("Draft 1");
-      }
-    } else {
-      setDraftName("Draft 1");
-    }
-
-    // Set initial load selesai
-    setTimeout(() => setIsInitialLoad(false), 500);
-  }, []);
-  const [isTemplateOpen, setIsTemplateOpen] = useState(false);
-  const [isDraftOpen, setIsDraftOpen] = useState(false);
-  const toggleTemplate = () => {
-    setIsTemplateOpen((prev) => !prev);
-  };
-  const toggleDraft = () => {
-    setIsDraftOpen((prev) => !prev);
-  };
   const getCurrentDraftData = () => ({
     personalInfo,
     profileSummary,
@@ -611,6 +575,7 @@ const CVGenerator = () => {
     template,
     foto,
   });
+
   const resetEditor = () => {
     setPersonalInfo(DEFAULT_PERSONAL_INFO);
     setProfileSummary("");
@@ -620,7 +585,9 @@ const CVGenerator = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+    localStorage.removeItem("cv_session_recovery");
   };
+
   const applyDraftData = (draft) => {
     if (!draft) return;
     setPersonalInfo({
@@ -639,12 +606,13 @@ const CVGenerator = () => {
       fileInputRef.current.value = "";
     }
   };
+
   const refreshDrafts = () => {
     const drafts = listDrafts();
     setSavedDrafts(drafts);
     return drafts;
   };
-  // Modified: Wrapper untuk setSelectedDraftId yang juga menyimpan ke localStorage
+
   const updateSelectedDraft = (draftId) => {
     setSelectedDraftId(draftId);
     if (draftId) {
@@ -655,6 +623,198 @@ const CVGenerator = () => {
       console.log("❌ Removed from localStorage");
     }
   };
+
+  const handleRestoreSession = () => {
+    if (recoveryData) {
+      applyDraftData(recoveryData);
+      if (recoveryData.draftName) {
+        setDraftName(recoveryData.draftName);
+      }
+      if (recoveryData.selectedDraftId) {
+        setSelectedDraftId(recoveryData.selectedDraftId);
+      }
+      toast.success("Data berhasil dipulihkan!", { duration: 3000 });
+      console.log("✅ Session recovered");
+    }
+    setShowRecoveryModal(false);
+  };
+
+  const handleDiscardSession = () => {
+    localStorage.removeItem("cv_session_recovery");
+    setShowRecoveryModal(false);
+    
+    const lastSelectedDraftId = localStorage.getItem("cv_last_selected_draft");
+    const drafts = listDrafts();
+    
+    if (lastSelectedDraftId && drafts.length > 0) {
+      const draftExists = drafts.find((d) => d.id === lastSelectedDraftId);
+      if (draftExists) {
+        const draftData = loadDraft(lastSelectedDraftId);
+        if (draftData) {
+          applyDraftData(draftData);
+          setSelectedDraftId(lastSelectedDraftId);
+          setDraftName(draftExists.name);
+          console.log("✅ Draft loaded:", draftExists.name);
+        }
+      }
+    } else {
+      setDraftName("Draft 1");
+    }
+  };
+
+  useEffect(() => {
+    if (isInitialLoad) {
+      return;
+    }
+
+    const sessionTimeout = setTimeout(() => {
+      const sessionData = getCurrentDraftData();
+      localStorage.setItem("cv_session_recovery", JSON.stringify({
+        ...sessionData,
+        timestamp: Date.now(),
+        draftName: draftName,
+        selectedDraftId: selectedDraftId,
+      }));
+      console.log("💾 Session recovery saved");
+    }, 1000);
+
+    return () => clearTimeout(sessionTimeout);
+  }, [personalInfo, profileSummary, sections, template, foto, draftName, selectedDraftId, isInitialLoad]);
+
+  useEffect(() => {
+    if (isInitialLoad || !selectedDraftId) {
+      return;
+    }
+
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    setAutoSaveStatus("saving");
+
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      const currentData = getCurrentDraftData();
+      const currentDataString = JSON.stringify(currentData);
+
+      if (lastSavedDataRef.current === currentDataString) {
+        setAutoSaveStatus("saved");
+        return;
+      }
+
+      const currentDraft = savedDrafts.find((d) => d.id === selectedDraftId);
+
+      if (currentDraft) {
+        const saved = saveDraft(currentData, {
+          id: selectedDraftId,
+          name: currentDraft.name,
+        });
+
+        if (saved) {
+          lastSavedDataRef.current = currentDataString;
+          setAutoSaveStatus("saved");
+          console.log("💾 Auto-saved:", currentDraft.name);
+
+          setTimeout(() => {
+            setAutoSaveStatus("idle");
+          }, 2000);
+        } else {
+          setAutoSaveStatus("idle");
+          console.error("❌ Auto-save failed");
+        }
+      }
+    }, 2000);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [personalInfo, profileSummary, sections, template, foto, selectedDraftId, isInitialLoad, savedDrafts]);
+
+  useEffect(() => {
+    const drafts = listDrafts();
+    setSavedDrafts(drafts);
+
+    const sessionRecovery = localStorage.getItem("cv_session_recovery");
+    const lastSelectedDraftId = localStorage.getItem("cv_last_selected_draft");
+
+    if (sessionRecovery) {
+      try {
+        const recoveryDataParsed = JSON.parse(sessionRecovery);
+        const recoveryAge = Date.now() - (recoveryDataParsed.timestamp || 0);
+
+        if (recoveryAge < 86400000) {
+          setRecoveryData(recoveryDataParsed);
+          setShowRecoveryModal(true);
+        } else {
+          localStorage.removeItem("cv_session_recovery");
+          
+          if (lastSelectedDraftId && drafts.length > 0) {
+            const draftExists = drafts.find((d) => d.id === lastSelectedDraftId);
+            if (draftExists) {
+              const draftData = loadDraft(lastSelectedDraftId);
+              if (draftData) {
+                applyDraftData(draftData);
+                setSelectedDraftId(lastSelectedDraftId);
+                setDraftName(draftExists.name);
+                console.log("✅ Draft loaded:", draftExists.name);
+              }
+            } else {
+              localStorage.removeItem("cv_last_selected_draft");
+              setDraftName("Draft 1");
+            }
+          } else {
+            setDraftName("Draft 1");
+          }
+        }
+      } catch (error) {
+        console.error("Error loading session recovery:", error);
+        localStorage.removeItem("cv_session_recovery");
+        setDraftName("Draft 1");
+      }
+    } else {
+      if (lastSelectedDraftId && drafts.length > 0) {
+        const draftExists = drafts.find((d) => d.id === lastSelectedDraftId);
+        if (draftExists) {
+          const draftData = loadDraft(lastSelectedDraftId);
+          if (draftData) {
+            applyDraftData(draftData);
+            setSelectedDraftId(lastSelectedDraftId);
+            setDraftName(draftExists.name);
+            console.log("✅ Draft loaded:", draftExists.name);
+          }
+        } else {
+          localStorage.removeItem("cv_last_selected_draft");
+          setDraftName("Draft 1");
+        }
+      } else {
+        setDraftName("Draft 1");
+      }
+    }
+
+    setTimeout(() => setIsInitialLoad(false), 500);
+    
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && showRecoveryModal) {
+        handleDiscardSession();
+      }
+    };
+    
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
+  const [isTemplateOpen, setIsTemplateOpen] = useState(false);
+  const [isDraftOpen, setIsDraftOpen] = useState(false);
+
+  const toggleTemplate = () => {
+    setIsTemplateOpen((prev) => !prev);
+  };
+
+  const toggleDraft = () => {
+    setIsDraftOpen((prev) => !prev);
+  };
+
   const addSection = () => {
     const newSection = {
       id: Date.now(),
@@ -672,6 +832,7 @@ const CVGenerator = () => {
       return newState;
     });
   };
+
   const removeSection = (sectionId) => {
     setSections(sections.filter((section) => section.id !== sectionId));
     setCollapsedSections((prev) => {
@@ -681,6 +842,7 @@ const CVGenerator = () => {
       return newState;
     });
   };
+
   const updateSection = (sectionId, field, value) => {
     setSections(
       sections.map((section) =>
@@ -688,6 +850,7 @@ const CVGenerator = () => {
       ),
     );
   };
+
   const addItem = (sectionId) => {
     setSections(
       sections.map((section) => {
@@ -705,6 +868,7 @@ const CVGenerator = () => {
       }),
     );
   };
+
   const removeItem = (sectionId, itemId) => {
     setSections(
       sections.map((section) => {
@@ -718,6 +882,7 @@ const CVGenerator = () => {
       }),
     );
   };
+
   const updateItem = (sectionId, itemId, field, value) => {
     if (itemId === null) {
       updateSection(sectionId, field, value);
@@ -737,7 +902,7 @@ const CVGenerator = () => {
       }),
     );
   };
-  // Move section up
+
   const moveSectionUp = (index) => {
     if (index > 0) {
       const newSections = [...sections];
@@ -749,7 +914,7 @@ const CVGenerator = () => {
       toast.success("Section dipindahkan ke atas", { duration: 2000 });
     }
   };
-  // Move section down
+
   const moveSectionDown = (index) => {
     if (index < sections.length - 1) {
       const newSections = [...sections];
@@ -761,6 +926,7 @@ const CVGenerator = () => {
       toast.success("Section dipindahkan ke bawah", { duration: 2000 });
     }
   };
+
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -771,12 +937,14 @@ const CVGenerator = () => {
       reader.readAsDataURL(file);
     }
   };
+
   const handleHapusFoto = () => {
     setFoto(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
+
   const formatDraftTimestamp = (timestamp) => {
     if (!timestamp) return "-";
     try {
@@ -788,6 +956,52 @@ const CVGenerator = () => {
       return "-";
     }
   };
+
+  const handleSaveDraft = () => {
+    const trimmedName = draftName.trim();
+    if (!trimmedName) {
+      toast.error("Nama draft wajib diisi!", { duration: 3000 });
+      return;
+    }
+
+    const currentData = getCurrentDraftData();
+    const existingDraft = savedDrafts.find(
+      (draft) => draft.name.toLowerCase() === trimmedName.toLowerCase(),
+    );
+
+    let draftIdToUse = null;
+    if (existingDraft) {
+      draftIdToUse = existingDraft.id;
+    } else {
+      draftIdToUse = `draft_${Date.now()}`;
+    }
+
+    const saved = saveDraft(currentData, {
+      id: draftIdToUse,
+      name: trimmedName,
+    });
+
+    if (!saved) {
+      toast.error("Gagal menyimpan draft!", { duration: 3000 });
+      return;
+    }
+
+    const updatedDrafts = listDrafts();
+    setSavedDrafts(updatedDrafts);
+
+    updateSelectedDraft(draftIdToUse);
+    setDraftName(trimmedName);
+    
+    lastSavedDataRef.current = JSON.stringify(currentData);
+
+    toast.success(
+      existingDraft
+        ? "Draft berhasil diperbarui!"
+        : "Draft baru berhasil disimpan!",
+      { duration: 3000 },
+    );
+  };
+
   const handleDragEnd = (event) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
@@ -799,46 +1013,11 @@ const CVGenerator = () => {
     }
     setActiveId(null);
   };
+
   const handleDragStart = (event) => {
     setActiveId(event.active.id);
   };
-  const handleSaveDraft = () => {
-    const trimmedName = draftName.trim();
-    if (!trimmedName) {
-      toast.error("Nama draft wajib diisi!", { duration: 3000 });
-      return;
-    }
-    const currentData = getCurrentDraftData();
-    const existingDraft = savedDrafts.find(
-      (draft) => draft.name.toLowerCase() === trimmedName.toLowerCase(),
-    );
-    let draftIdToUse = null;
-    if (existingDraft) {
-      draftIdToUse = existingDraft.id;
-    } else {
-      draftIdToUse = `draft_${Date.now()}`;
-    }
-    const saved = saveDraft(currentData, {
-      id: draftIdToUse,
-      name: trimmedName,
-    });
-    if (!saved) {
-      toast.error("Gagal menyimpan draft!", { duration: 3000 });
-      return;
-    }
-    const updatedDrafts = listDrafts();
-    setSavedDrafts(updatedDrafts);
 
-    // Gunakan wrapper function untuk update dan save ke localStorage
-    updateSelectedDraft(draftIdToUse);
-    setDraftName(trimmedName);
-    toast.success(
-      existingDraft
-        ? "Draft berhasil diperbarui!"
-        : "Draft baru berhasil disimpan!",
-      { duration: 3000 },
-    );
-  };
   const handleDownloadDOCX = () => {
     const requiredFields = [
       { value: personalInfo.nama, label: "Nama Lengkap" },
@@ -940,6 +1119,7 @@ const CVGenerator = () => {
       }
     });
   };
+
   const handleDownloadCV = () => {
     const requiredFields = [
       { value: personalInfo.nama, label: "Nama Lengkap" },
@@ -1080,6 +1260,7 @@ const CVGenerator = () => {
         document.body.removeChild(tempContainer);
       });
   };
+
   const getTemplateClass = () => {
     switch (template) {
       case "corporate":
@@ -1088,468 +1269,521 @@ const CVGenerator = () => {
         return "";
     }
   };
+
   const formattedPhonePreview = formatPhoneNumber(personalInfo.telepon);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 px-2 md:px-0">
-      <div className="space-y-4 md:space-y-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 md:p-8 relative">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white mb-4 md:mb-6 flex items-center">
-            <Briefcase
-              className="mr-2 md:mr-3 text-purple-600 dark:text-purple-400"
-              size={28}
-            />
-            CV Generator
-          </h2>
-          {/* Template Selection - Collapsible */}
-          <div className="mb-4 md:mb-6 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden relative z-10">
-            <button
-              onClick={toggleTemplate}
-              className="w-full px-3 md:px-4 py-2.5 md:py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
-            >
-              <div className="flex items-center space-x-2">
-                <Palette
-                  className="text-purple-600 dark:text-purple-400"
-                  size={18}
+    <>
+      <SessionRecoveryModal
+        isOpen={showRecoveryModal}
+        onRestore={handleRestoreSession}
+        onDiscard={handleDiscardSession}
+        timestamp={recoveryData?.timestamp}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 px-2 md:px-0">
+        <div className="space-y-4 md:space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 md:p-8 relative">
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white flex items-center">
+                <Briefcase
+                  className="mr-2 md:mr-3 text-purple-600 dark:text-purple-400"
+                  size={28}
                 />
-                <span className="font-semibold text-sm md:text-base text-gray-700 dark:text-gray-300">
-                  Pilih Template CV
-                </span>
-              </div>
-              <div
-                className="transition-transform duration-300"
-                style={{
-                  transform: isTemplateOpen ? "rotate(180deg)" : "rotate(0deg)",
-                }}
-              >
-                <ChevronDown
-                  className="text-gray-600 dark:text-gray-400"
-                  size={18}
-                />
-              </div>
-            </button>
-            <div
-              className="overflow-hidden transition-all duration-300 ease-in-out"
-              style={{
-                maxHeight: isTemplateOpen ? "500px" : "0px",
-                opacity: isTemplateOpen ? 1 : 0,
-              }}
-            >
-              <div className="p-3 md:p-4 grid grid-cols-1 gap-2 md:gap-3">
-                {[
-                  {
-                    id: "minimal",
-                    name: "Minimalis",
-                    desc: "Bersih & profesional",
-                  },
-                  {
-                    id: "corporate",
-                    name: "Korporat",
-                    desc: "Formal & terstruktur",
-                  },
-                ].map((tpl) => (
-                  <button
-                    key={tpl.id}
-                    onClick={() => {
-                      setTemplate(tpl.id);
-                      toast.success(`Template ${tpl.name} dipilih!`, {
-                        duration: 2000,
-                      });
-                    }}
-                    className={`p-3 rounded-lg border-2 transition-all text-left transform hover:scale-[1.02] ${
-                      template === tpl.id
-                        ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30 shadow-md"
-                        : "border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    <div className="font-bold text-sm md:text-base text-gray-800 dark:text-white">
-                      {tpl.name}
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {tpl.desc}
-                    </div>
-                  </button>
-                ))}
-              </div>
+                CV Generator
+              </h2>
+              {selectedDraftId && (
+                <AutoSaveIndicator status={autoSaveStatus} />
+              )}
             </div>
-          </div>
-          {/* Draft Section - Collapsible */}
-          <div className="mb-4 md:mb-6 border border-gray-200 dark:border-gray-600 rounded-xl relative z-[9999]">
-            <button
-              onClick={toggleDraft}
-              className="w-full px-3 md:px-4 py-2.5 md:py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-xl"
-            >
-              <div className="flex items-center space-x-2">
-                <FolderOpen
-                  className="text-blue-600 dark:text-blue-400"
-                  size={18}
-                />
-                <span className="font-semibold text-sm md:text-base text-gray-700 dark:text-gray-300">
-                  Kelola Draft
-                </span>
-              </div>
-              <div
-                className="transition-transform duration-300"
-                style={{
-                  transform: isDraftOpen ? "rotate(180deg)" : "rotate(0deg)",
-                }}
+
+            <div className="mb-4 md:mb-6 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden relative z-10">
+              <button
+                onClick={toggleTemplate}
+                className="w-full px-3 md:px-4 py-2.5 md:py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
               >
-                <ChevronDown
-                  className="text-gray-600 dark:text-gray-400"
-                  size={18}
-                />
-              </div>
-            </button>
-            <div
-              className="transition-all duration-300 ease-in-out"
-              style={{
-                maxHeight: isDraftOpen ? "500px" : "0px",
-                opacity: isDraftOpen ? 1 : 0,
-                overflow: isDraftOpen ? "visible" : "hidden",
-              }}
-            >
-              <div className="p-3 md:p-4">
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Nama Draft
-                  </label>
-                  <input
-                    type="text"
-                    value={draftName}
-                    onChange={(e) => setDraftName(e.target.value)}
-                    className="w-full px-3 md:px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 transition-all text-sm md:text-base"
-                    placeholder="Contoh: CV Marketing 2026"
+                <div className="flex items-center space-x-2">
+                  <Palette
+                    className="text-purple-600 dark:text-purple-400"
+                    size={18}
+                  />
+                  <span className="font-semibold text-sm md:text-base text-gray-700 dark:text-gray-300">
+                    Pilih Template CV
+                  </span>
+                </div>
+                <div
+                  className="transition-transform duration-300"
+                  style={{
+                    transform: isTemplateOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  }}
+                >
+                  <ChevronDown
+                    className="text-gray-600 dark:text-gray-400"
+                    size={18}
                   />
                 </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-4 relative z-[99999]">
-                  <div className="flex-1">
-                    <DraftDropdown
-                      savedDrafts={savedDrafts}
-                      selectedDraftId={selectedDraftId}
-                      setSelectedDraftId={updateSelectedDraft}
-                      setDraftName={setDraftName}
-                      loadDraft={loadDraft}
-                      applyDraftData={applyDraftData}
-                      clearDraft={clearDraft}
-                      resetEditor={resetEditor}
-                      refreshDrafts={refreshDrafts}
-                      formatDraftTimestamp={formatDraftTimestamp}
-                    />
-                  </div>
-                  <button
-                    onClick={handleSaveDraft}
-                    className="flex items-center justify-center space-x-1 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 text-sm md:text-base whitespace-nowrap"
-                  >
-                    <Save size={16} />
-                    <span>Simpan</span>
-                  </button>
+              </button>
+              <div
+                className="overflow-hidden transition-all duration-300 ease-in-out"
+                style={{
+                  maxHeight: isTemplateOpen ? "500px" : "0px",
+                  opacity: isTemplateOpen ? 1 : 0,
+                }}
+              >
+                <div className="p-3 md:p-4 grid grid-cols-1 gap-2 md:gap-3">
+                  {[
+                    {
+                      id: "minimal",
+                      name: "Minimalis",
+                      desc: "Bersih & profesional",
+                    },
+                    {
+                      id: "corporate",
+                      name: "Korporat",
+                      desc: "Formal & terstruktur",
+                    },
+                  ].map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      onClick={() => {
+                        setTemplate(tpl.id);
+                        toast.success(`Template ${tpl.name} dipilih!`, {
+                          duration: 2000,
+                        });
+                      }}
+                      className={`p-3 rounded-lg border-2 transition-all text-left transform hover:scale-[1.02] ${
+                        template === tpl.id
+                          ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30 shadow-md"
+                          : "border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <div className="font-bold text-sm md:text-base text-gray-800 dark:text-white">
+                        {tpl.name}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        {tpl.desc}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
-          </div>
-          {/* Informasi Pribadi + Deskripsi Diri (Collapsible) */}
-          <div className="mb-6 md:mb-8">
-            <div
-              className="flex justify-between items-center p-3 md:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer"
-              onClick={togglePersonalInfo}
-            >
-              <div className="flex items-center space-x-2">
-                <User
-                  className="text-purple-600 dark:text-purple-400"
-                  size={20}
-                />
-                <h3 className="text-lg md:text-xl font-bold text-gray-800 dark:text-white">
-                  Informasi Pribadi
-                </h3>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    togglePersonalInfo();
+
+            <div className="mb-4 md:mb-6 border border-gray-200 dark:border-gray-600 rounded-xl relative z-[9999]">
+              <button
+                onClick={toggleDraft}
+                className="w-full px-3 md:px-4 py-2.5 md:py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-xl"
+              >
+                <div className="flex items-center space-x-2">
+                  <FolderOpen
+                    className="text-blue-600 dark:text-blue-400"
+                    size={18}
+                  />
+                  <span className="font-semibold text-sm md:text-base text-gray-700 dark:text-gray-300">
+                    Kelola Draft
+                  </span>
+                </div>
+                <div
+                  className="transition-transform duration-300"
+                  style={{
+                    transform: isDraftOpen ? "rotate(180deg)" : "rotate(0deg)",
                   }}
-                  aria-label={
-                    isPersonalInfoCollapsed
-                      ? "Buka informasi pribadi"
-                      : "Tutup informasi pribadi"
-                  }
                 >
-                  {isPersonalInfoCollapsed ? (
-                    <ChevronDown size={18} />
-                  ) : (
-                    <ChevronUp size={18} />
-                  )}
+                  <ChevronDown
+                    className="text-gray-600 dark:text-gray-400"
+                    size={18}
+                  />
+                </div>
+              </button>
+              <div
+                className="transition-all duration-300 ease-in-out"
+                style={{
+                  maxHeight: isDraftOpen ? "500px" : "0px",
+                  opacity: isDraftOpen ? 1 : 0,
+                  overflow: isDraftOpen ? "visible" : "hidden",
+                }}
+              >
+                <div className="p-3 md:p-4">
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Nama Draft
+                    </label>
+                    <input
+                      type="text"
+                      value={draftName}
+                      onChange={(e) => setDraftName(e.target.value)}
+                      className="w-full px-3 md:px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 transition-all text-sm md:text-base"
+                      placeholder="Contoh: CV Marketing 2026"
+                    />
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-4 relative z-[99999]">
+                    <div className="flex-1">
+                      <DraftDropdown
+                        savedDrafts={savedDrafts}
+                        selectedDraftId={selectedDraftId}
+                        setSelectedDraftId={updateSelectedDraft}
+                        setDraftName={setDraftName}
+                        loadDraft={loadDraft}
+                        applyDraftData={applyDraftData}
+                        clearDraft={clearDraft}
+                        resetEditor={resetEditor}
+                        refreshDrafts={refreshDrafts}
+                        formatDraftTimestamp={formatDraftTimestamp}
+                      />
+                    </div>
+                    <button
+                      onClick={handleSaveDraft}
+                      className="flex items-center justify-center space-x-1 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 text-sm md:text-base whitespace-nowrap"
+                    >
+                      <Save size={16} />
+                      <span>Simpan</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6 md:mb-8">
+              <div
+                className="flex justify-between items-center p-3 md:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer"
+                onClick={togglePersonalInfo}
+              >
+                <div className="flex items-center space-x-2">
+                  <User
+                    className="text-purple-600 dark:text-purple-400"
+                    size={20}
+                  />
+                  <h3 className="text-lg md:text-xl font-bold text-gray-800 dark:text-white">
+                    Informasi Pribadi
+                  </h3>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      togglePersonalInfo();
+                    }}
+                    aria-label={
+                      isPersonalInfoCollapsed
+                        ? "Buka informasi pribadi"
+                        : "Tutup informasi pribadi"
+                    }
+                  >
+                    {isPersonalInfoCollapsed ? (
+                      <ChevronDown size={18} />
+                    ) : (
+                      <ChevronUp size={18} />
+                    )}
+                  </button>
+                </div>
+              </div>
+              <AnimatePresence>
+                {!isPersonalInfoCollapsed && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    className="overflow-hidden pt-3 md:pt-4"
+                  >
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Foto Profil (Opsional)
+                      </label>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/*"
+                        onChange={handleFotoChange}
+                        className="w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base"
+                      />
+                      {foto && (
+                        <div className="mt-3 relative inline-block">
+                          <img
+                            src={foto}
+                            alt="Preview Foto"
+                            className="w-20 h-20 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
+                          />
+                          <button
+                            onClick={handleHapusFoto}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
+                            aria-label="Hapus foto"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-3 md:space-y-4">
+                      <input
+                        type="text"
+                        value={personalInfo.nama}
+                        onChange={(e) =>
+                          setPersonalInfo({
+                            ...personalInfo,
+                            nama: e.target.value,
+                          })
+                        }
+                        className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
+                          !personalInfo.nama.trim()
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
+                        placeholder="Nama Lengkap"
+                        style={{ textTransform: "uppercase" }}
+                      />
+                      {!personalInfo.nama.trim() && (
+                        <p className="text-xs md:text-sm text-red-600">
+                          Wajib diisi
+                        </p>
+                      )}
+                      <input
+                        type="email"
+                        value={personalInfo.email}
+                        onChange={(e) =>
+                          setPersonalInfo({
+                            ...personalInfo,
+                            email: e.target.value,
+                          })
+                        }
+                        className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
+                          !personalInfo.email.trim()
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
+                        placeholder="Email"
+                      />
+                      {!personalInfo.email.trim() && (
+                        <p className="text-xs md:text-sm text-red-600">
+                          Wajib diisi
+                        </p>
+                      )}
+                      <input
+                        type="url"
+                        value={personalInfo.link}
+                        onChange={(e) =>
+                          setPersonalInfo({
+                            ...personalInfo,
+                            link: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base"
+                        placeholder="Link Portfolio / LinkedIn / GitHub"
+                      />
+                      <input
+                        type="tel"
+                        value={personalInfo.telepon}
+                        onChange={(e) =>
+                          setPersonalInfo({
+                            ...personalInfo,
+                            telepon: e.target.value,
+                          })
+                        }
+                        className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
+                          !personalInfo.telepon.trim()
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
+                        placeholder="Nomor Telepon"
+                      />
+                      {!personalInfo.telepon.trim() && (
+                        <p className="text-xs md:text-sm text-red-600">
+                          Wajib diisi
+                        </p>
+                      )}
+                      <input
+                        type="text"
+                        value={personalInfo.alamat}
+                        onChange={(e) =>
+                          setPersonalInfo({
+                            ...personalInfo,
+                            alamat: e.target.value,
+                          })
+                        }
+                        className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
+                          !personalInfo.alamat.trim()
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
+                        placeholder="Alamat"
+                      />
+                      {!personalInfo.alamat.trim() && (
+                        <p className="text-xs md:text-sm text-red-600">
+                          Wajib diisi
+                        </p>
+                      )}
+                      <input
+                        type="text"
+                        value={personalInfo.kota}
+                        onChange={(e) =>
+                          setPersonalInfo({
+                            ...personalInfo,
+                            kota: e.target.value,
+                          })
+                        }
+                        className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
+                          !personalInfo.kota.trim()
+                            ? "border-red-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
+                        placeholder="Kota, Provinsi"
+                      />
+                      {!personalInfo.kota.trim() && (
+                        <p className="text-xs md:text-sm text-red-600">
+                          Wajib diisi
+                        </p>
+                      )}
+                      <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+                        <h4 className="text-base md:text-lg font-bold text-gray-800 dark:text-white mb-2">
+                          Deskripsi Diri (Ringkasan Profil)
+                        </h4>
+                        <textarea
+                          value={profileSummary}
+                          onChange={(e) => setProfileSummary(e.target.value)}
+                          className="w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 min-h-[100px] md:min-h-[120px] text-sm md:text-base"
+                          placeholder="Contoh: Lulusan S1..."
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <DndContext
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+              onDragStart={handleDragStart}
+            >
+              <SortableContext
+                items={sections.map((section) => section.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {sections.map((section, index) => (
+                  <SortableSection
+                    key={section.id}
+                    section={section}
+                    index={index}
+                    sectionsLength={sections.length}
+                    onRemove={removeSection}
+                    onUpdateItem={updateItem}
+                    onRemoveItem={removeItem}
+                    onAddItem={addItem}
+                    isCollapsed={collapsedSections[section.id] || false}
+                    toggleCollapse={() => toggleCollapse(section.id)}
+                    onMoveUp={moveSectionUp}
+                    onMoveDown={moveSectionDown}
+                  />
+                ))}
+              </SortableContext>
+              <DragOverlay>
+                {activeId ? (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 md:p-6 w-full max-w-2xl">
+                    <div className="text-lg md:text-xl font-bold text-gray-800 dark:text-white">
+                      Sedang Dipindahkan...
+                    </div>
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+
+            <button
+              onClick={addSection}
+              className="w-full py-2.5 md:py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center space-x-2 transform hover:scale-[1.02] text-sm md:text-base"
+            >
+              <Plus size={18} />
+              <span>Tambah Section Baru</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="lg:sticky lg:top-24 h-fit">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 md:p-8">
+            <div className="flex justify-between items-center mb-4 md:mb-6 gap-2">
+              <h3 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">
+                Preview CV
+              </h3>
+              <div className="flex space-x-1.5 md:space-x-2">
+                <button
+                  onClick={handleDownloadCV}
+                  className="flex items-center space-x-1 md:space-x-2 bg-green-600 text-white px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 text-xs md:text-base"
+                >
+                  <Download size={16} />
+                  <span className="hidden sm:inline">PDF</span>
+                </button>
+                <button
+                  onClick={handleDownloadDOCX}
+                  className="flex items-center space-x-1 md:space-x-2 bg-blue-600 text-white px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 text-xs md:text-base"
+                >
+                  <FileText size={16} />
+                  <span className="hidden sm:inline">Word</span>
                 </button>
               </div>
             </div>
-            <AnimatePresence>
-              {!isPersonalInfoCollapsed && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                  className="overflow-hidden pt-3 md:pt-4"
-                >
-                  {/* Foto Profil */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Foto Profil (Opsional)
-                    </label>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept="image/*"
-                      onChange={handleFotoChange}
-                      className="w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base"
-                    />
-                    {foto && (
-                      <div className="mt-3 relative inline-block">
-                        <img
-                          src={foto}
-                          alt="Preview Foto"
-                          className="w-20 h-20 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
-                        />
-                        <button
-                          onClick={handleHapusFoto}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
-                          aria-label="Hapus foto"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  {/* Field Wajib */}
-                  <div className="space-y-3 md:space-y-4">
-                    <input
-                      type="text"
-                      value={personalInfo.nama}
-                      onChange={(e) =>
-                        setPersonalInfo({
-                          ...personalInfo,
-                          nama: e.target.value,
-                        })
-                      }
-                      className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
-                        !personalInfo.nama.trim()
-                          ? "border-red-500"
-                          : "border-gray-300 dark:border-gray-600"
-                      } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
-                      placeholder="Nama Lengkap"
-                      style={{ textTransform: "uppercase" }}
-                    />
-                    {!personalInfo.nama.trim() && (
-                      <p className="text-xs md:text-sm text-red-600">
-                        Wajib diisi
-                      </p>
-                    )}
-                    <input
-                      type="email"
-                      value={personalInfo.email}
-                      onChange={(e) =>
-                        setPersonalInfo({
-                          ...personalInfo,
-                          email: e.target.value,
-                        })
-                      }
-                      className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
-                        !personalInfo.email.trim()
-                          ? "border-red-500"
-                          : "border-gray-300 dark:border-gray-600"
-                      } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
-                      placeholder="Email"
-                    />
-                    {!personalInfo.email.trim() && (
-                      <p className="text-xs md:text-sm text-red-600">
-                        Wajib diisi
-                      </p>
-                    )}
-                    <input
-                      type="url"
-                      value={personalInfo.link}
-                      onChange={(e) =>
-                        setPersonalInfo({
-                          ...personalInfo,
-                          link: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base"
-                      placeholder="Link Portfolio / LinkedIn / GitHub"
-                    />
-                    <input
-                      type="tel"
-                      value={personalInfo.telepon}
-                      onChange={(e) =>
-                        setPersonalInfo({
-                          ...personalInfo,
-                          telepon: e.target.value,
-                        })
-                      }
-                      className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
-                        !personalInfo.telepon.trim()
-                          ? "border-red-500"
-                          : "border-gray-300 dark:border-gray-600"
-                      } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
-                      placeholder="Nomor Telepon"
-                    />
-                    {!personalInfo.telepon.trim() && (
-                      <p className="text-xs md:text-sm text-red-600">
-                        Wajib diisi
-                      </p>
-                    )}
-                    <input
-                      type="text"
-                      value={personalInfo.alamat}
-                      onChange={(e) =>
-                        setPersonalInfo({
-                          ...personalInfo,
-                          alamat: e.target.value,
-                        })
-                      }
-                      className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
-                        !personalInfo.alamat.trim()
-                          ? "border-red-500"
-                          : "border-gray-300 dark:border-gray-600"
-                      } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
-                      placeholder="Alamat"
-                    />
-                    {!personalInfo.alamat.trim() && (
-                      <p className="text-xs md:text-sm text-red-600">
-                        Wajib diisi
-                      </p>
-                    )}
-                    <input
-                      type="text"
-                      value={personalInfo.kota}
-                      onChange={(e) =>
-                        setPersonalInfo({
-                          ...personalInfo,
-                          kota: e.target.value,
-                        })
-                      }
-                      className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
-                        !personalInfo.kota.trim()
-                          ? "border-red-500"
-                          : "border-gray-300 dark:border-gray-600"
-                      } bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base`}
-                      placeholder="Kota, Provinsi"
-                    />
-                    {!personalInfo.kota.trim() && (
-                      <p className="text-xs md:text-sm text-red-600">
-                        Wajib diisi
-                      </p>
-                    )}
-                    {/* Deskripsi Diri (Ringkasan Profil) */}
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
-                      <h4 className="text-base md:text-lg font-bold text-gray-800 dark:text-white mb-2">
-                        Deskripsi Diri (Ringkasan Profil)
-                      </h4>
-                      <textarea
-                        value={profileSummary}
-                        onChange={(e) => setProfileSummary(e.target.value)}
-                        className="w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 min-h-[100px] md:min-h-[120px] text-sm md:text-base"
-                        placeholder="Contoh: Lulusan S1..."
+            <div
+              ref={cvRef}
+              className={
+                template === "elegant"
+                  ? "p-4 md:p-8 min-h-[600px] md:min-h-[800px]"
+                  : `p-4 md:p-8 min-h-[600px] md:min-h-[800px] ${getTemplateClass()}`
+              }
+              style={{ fontFamily: "'Times New Roman', Times, serif" }}
+            >
+              <div className="text-center mb-4 md:mb-6 pb-4 md:pb-6">
+                {foto ? (
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 md:gap-6">
+                    <div className="flex-shrink-0 relative">
+                      <img
+                        src={foto}
+                        alt="Foto Profil"
+                        className="w-20 h-20 md:w-24 md:h-24 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
                       />
                     </div>
+                    <div className="flex-1 text-center sm:text-left">
+                      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                        {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
+                      </h1>
+                      <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center sm:justify-start gap-1">
+                        {(() => {
+                          const contactItems = [];
+                          if (personalInfo.email)
+                            contactItems.push(personalInfo.email);
+                          if (personalInfo.link) {
+                            contactItems.push(
+                              <a
+                                key="link"
+                                href={personalInfo.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 break-all"
+                              >
+                                {personalInfo.link}
+                              </a>,
+                            );
+                          }
+                          if (formattedPhonePreview)
+                            contactItems.push(formattedPhonePreview);
+                          return contactItems.map((item, index) => (
+                            <React.Fragment key={index}>
+                              {item}
+                              {index < contactItems.length - 1 && <span>|</span>}
+                            </React.Fragment>
+                          ));
+                        })()}
+                      </div>
+                      <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-2">
+                        {personalInfo.alamat || "Alamat"}
+                        {personalInfo.kota && `, ${personalInfo.kota}`}
+                      </p>
+                    </div>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          {/* Section Reordering */}
-          <DndContext
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-            onDragStart={handleDragStart}
-          >
-            <SortableContext
-              items={sections.map((section) => section.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              {sections.map((section, index) => (
-                <SortableSection
-                  key={section.id}
-                  section={section}
-                  index={index}
-                  sectionsLength={sections.length}
-                  onRemove={removeSection}
-                  onUpdateItem={updateItem}
-                  onRemoveItem={removeItem}
-                  onAddItem={addItem}
-                  isCollapsed={collapsedSections[section.id] || false}
-                  toggleCollapse={() => toggleCollapse(section.id)}
-                  onMoveUp={moveSectionUp}
-                  onMoveDown={moveSectionDown}
-                />
-              ))}
-            </SortableContext>
-            <DragOverlay>
-              {activeId ? (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 md:p-6 w-full max-w-2xl">
-                  <div className="text-lg md:text-xl font-bold text-gray-800 dark:text-white">
-                    Sedang Dipindahkan...
-                  </div>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-          <button
-            onClick={addSection}
-            className="w-full py-2.5 md:py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center space-x-2 transform hover:scale-[1.02] text-sm md:text-base"
-          >
-            <Plus size={18} />
-            <span>Tambah Section Baru</span>
-          </button>
-        </div>
-      </div>
-      <div className="lg:sticky lg:top-24 h-fit">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 md:p-8">
-          <div className="flex justify-between items-center mb-4 md:mb-6 gap-2">
-            <h3 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">
-              Preview CV
-            </h3>
-            <div className="flex space-x-1.5 md:space-x-2">
-              <button
-                onClick={handleDownloadCV}
-                className="flex items-center space-x-1 md:space-x-2 bg-green-600 text-white px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 text-xs md:text-base"
-              >
-                <Download size={16} />
-                <span className="hidden sm:inline">PDF</span>
-              </button>
-              <button
-                onClick={handleDownloadDOCX}
-                className="flex items-center space-x-1 md:space-x-2 bg-blue-600 text-white px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 text-xs md:text-base"
-              >
-                <FileText size={16} />
-                <span className="hidden sm:inline">Word</span>
-              </button>
-            </div>
-          </div>
-          <div
-            ref={cvRef}
-            className={
-              template === "elegant"
-                ? "p-4 md:p-8 min-h-[600px] md:min-h-[800px]"
-                : `p-4 md:p-8 min-h-[600px] md:min-h-[800px] ${getTemplateClass()}`
-            }
-            style={{ fontFamily: "'Times New Roman', Times, serif" }}
-          >
-            <div className="text-center mb-4 md:mb-6 pb-4 md:pb-6">
-              {foto ? (
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 md:gap-6">
-                  <div className="flex-shrink-0 relative">
-                    <img
-                      src={foto}
-                      alt="Foto Profil"
-                      className="w-20 h-20 md:w-24 md:h-24 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
-                    />
-                  </div>
-                  <div className="flex-1 text-center sm:text-left">
+                ) : (
+                  <>
                     <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
                       {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
                     </h1>
-                    <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center sm:justify-start gap-1">
+                    <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
                       {(() => {
                         const contactItems = [];
                         if (personalInfo.email)
@@ -1581,92 +1815,55 @@ const CVGenerator = () => {
                       {personalInfo.alamat || "Alamat"}
                       {personalInfo.kota && `, ${personalInfo.kota}`}
                     </p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                    {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
-                  </h1>
-                  <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
-                    {(() => {
-                      const contactItems = [];
-                      if (personalInfo.email)
-                        contactItems.push(personalInfo.email);
-                      if (personalInfo.link) {
-                        contactItems.push(
-                          <a
-                            key="link"
-                            href={personalInfo.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 break-all"
-                          >
-                            {personalInfo.link}
-                          </a>,
-                        );
-                      }
-                      if (formattedPhonePreview)
-                        contactItems.push(formattedPhonePreview);
-                      return contactItems.map((item, index) => (
-                        <React.Fragment key={index}>
-                          {item}
-                          {index < contactItems.length - 1 && <span>|</span>}
-                        </React.Fragment>
-                      ));
-                    })()}
-                  </div>
-                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-2">
-                    {personalInfo.alamat || "Alamat"}
-                    {personalInfo.kota && `, ${personalInfo.kota}`}
+                  </>
+                )}
+              </div>
+              {profileSummary && (
+                <div className="mb-2 text-justify">
+                  <p className="leading-5 md:leading-6 text-sm md:text-base text-gray-800 dark:text-gray-300">
+                    {profileSummary}
                   </p>
-                </>
-              )}
-            </div>
-            {profileSummary && (
-              <div className="mb-2 text-justify">
-                <p className="leading-5 md:leading-6 text-sm md:text-base text-gray-800 dark:text-gray-300">
-                  {profileSummary}
-                </p>
-              </div>
-            )}
-            {sections.map((section) => (
-              <div key={section.id} className="mb-4 md:mb-6">
-                <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-2 md:pt-3 mb-3 md:mb-4">
-                  <h2 className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
-                    {section.title.toUpperCase() || "SECTION TITLE"}
-                  </h2>
                 </div>
-                {section.items.map((item) => (
-                  <div key={item.id} className="mb-3 md:mb-4">
-                    {item.judul && (
-                      <h3 className="font-bold text-sm md:text-base text-gray-900 dark:text-white">
-                        {item.judul}
-                      </h3>
-                    )}
-                    {item.subjudul && (
-                      <p className="text-xs md:text-sm text-gray-700 dark:text-gray-400">
-                        {item.subjudul}
-                      </p>
-                    )}
-                    {item.tahun && (
-                      <p className="text-xs md:text-sm text-gray-600 dark:text-gray-500 italic">
-                        {item.tahun}
-                      </p>
-                    )}
-                    {item.deskripsi && (
-                      <p className="text-xs md:text-sm text-gray-700 dark:text-gray-400 mt-1 whitespace-pre-wrap">
-                        {item.deskripsi}
-                      </p>
-                    )}
+              )}
+              {sections.map((section) => (
+                <div key={section.id} className="mb-4 md:mb-6">
+                  <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-2 md:pt-3 mb-3 md:mb-4">
+                    <h2 className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
+                      {section.title.toUpperCase() || "SECTION TITLE"}
+                    </h2>
                   </div>
-                ))}
-              </div>
-            ))}
+                  {section.items.map((item) => (
+                    <div key={item.id} className="mb-3 md:mb-4">
+                      {item.judul && (
+                        <h3 className="font-bold text-sm md:text-base text-gray-900 dark:text-white">
+                          {item.judul}
+                        </h3>
+                      )}
+                      {item.subjudul && (
+                        <p className="text-xs md:text-sm text-gray-700 dark:text-gray-400">
+                          {item.subjudul}
+                        </p>
+                      )}
+                      {item.tahun && (
+                        <p className="text-xs md:text-sm text-gray-600 dark:text-gray-500 italic">
+                          {item.tahun}
+                        </p>
+                      )}
+                      {item.deskripsi && (
+                        <p className="text-xs md:text-sm text-gray-700 dark:text-gray-400 mt-1 whitespace-pre-wrap">
+                          {item.deskripsi}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
+
 export default CVGenerator;
