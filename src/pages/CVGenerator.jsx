@@ -23,10 +23,12 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 import {
   saveDraft,
   loadDraft,
+  listDrafts,
   clearDraft,
   unlockAchievement,
 } from "../utils/draftManager";
 import { showBadgeNotification } from "../components/ui/BadgeNotification";
+import DraftDropdown from "../components/ui/DraftDropdown";
 
 const COUNTRY_CODES = {
   7: "RU",
@@ -108,7 +110,7 @@ const formatPhoneNumber = (phone) => {
           if (phoneNumber && phoneNumber.isValid()) {
             return phoneNumber.formatInternational();
           }
-        } catch (error) {
+        } catch {
           const countryMap = {
             1: "US",
             44: "GB",
@@ -131,7 +133,9 @@ const formatPhoneNumber = (phone) => {
             if (phoneNumber && phoneNumber.isValid()) {
               return phoneNumber.formatInternational();
             }
-          } catch (e) {}
+          } catch (fallbackError) {
+            console.warn("Error formatting fallback number:", fallbackError);
+          }
         }
       }
     }
@@ -140,52 +144,101 @@ const formatPhoneNumber = (phone) => {
   return phone;
 };
 
+const DEFAULT_PERSONAL_INFO = {
+  nama: "",
+  email: "",
+  telepon: "",
+  alamat: "",
+  kota: "",
+  link: "",
+};
+
+const createDefaultSections = () => [
+  {
+    id: 1,
+    type: "custom",
+    title: "PENDIDIKAN",
+    items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
+  },
+  {
+    id: 2,
+    type: "custom",
+    title: "PENGALAMAN KERJA",
+    items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
+  },
+];
+
 const CVGenerator = () => {
-  const [personalInfo, setPersonalInfo] = useState({
-    nama: "",
-    email: "",
-    telepon: "",
-    alamat: "",
-    kota: "",
-    link: "",
-  });
+  const [personalInfo, setPersonalInfo] = useState(DEFAULT_PERSONAL_INFO);
   const [profileSummary, setProfileSummary] = useState("");
-  const [sections, setSections] = useState([
-    {
-      id: 1,
-      type: "custom",
-      title: "PENDIDIKAN",
-      items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
-    },
-    {
-      id: 2,
-      type: "custom",
-      title: "PENGALAMAN KERJA",
-      items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
-    },
-  ]);
+  const [sections, setSections] = useState(() => createDefaultSections());
   const [foto, setFoto] = useState(null);
   const [template, setTemplate] = useState("minimal");
+  const [draftName, setDraftName] = useState("");
+  const [savedDrafts, setSavedDrafts] = useState([]);
+  const [selectedDraftId, setSelectedDraftId] = useState("");
+  const [isDraftReady, setIsDraftReady] = useState(false);
+  const [isOpen, setIsOpen] = useState(false)
   const fileInputRef = useRef(null);
   const cvRef = useRef(null);
 
-  useEffect(() => {
-    const draft = loadDraft();
-    if (draft) {
-      setPersonalInfo(draft.personalInfo || personalInfo);
-      setProfileSummary(draft.profileSummary || "");
-      setSections(draft.sections || sections);
-      setTemplate(draft.template || "minimal");
-      if (draft.foto) setFoto(draft.foto);
+  const toggleDraft = () => {
+    setIsOpen(prev => !prev);
+  }
+
+  const getCurrentDraftData = () => ({
+    personalInfo,
+    profileSummary,
+    sections,
+    template,
+    foto,
+  });
+
+  const resetEditor = () => {
+    setPersonalInfo(DEFAULT_PERSONAL_INFO);
+    setProfileSummary("");
+    setSections(createDefaultSections());
+    setTemplate("minimal");
+    setFoto(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
-  }, []);
+  };
+
+  const applyDraftData = (draft) => {
+    if (!draft) return;
+
+    setPersonalInfo({
+      ...DEFAULT_PERSONAL_INFO,
+      ...(draft.personalInfo || {}),
+    });
+    setProfileSummary(draft.profileSummary || "");
+    setSections(
+      Array.isArray(draft.sections) && draft.sections.length > 0
+        ? draft.sections
+        : createDefaultSections(),
+    );
+    setTemplate(draft.template || "minimal");
+    setFoto(draft.foto || null);
+
+    if (!draft.foto && fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const refreshDrafts = () => {
+    const drafts = listDrafts();
+    setSavedDrafts(drafts);
+    return drafts;
+  };
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      saveDraft({ personalInfo, profileSummary, sections, template, foto });
-    }, 2000);
-    return () => clearTimeout(handler);
-  }, [personalInfo, profileSummary, sections, template, foto]);
+    const drafts = listDrafts();
+    setSavedDrafts(drafts);
+
+    setSelectedDraftId("");
+    setDraftName("");
+  }, []);
 
   const addSection = () => {
     const newSection = {
@@ -275,19 +328,98 @@ const CVGenerator = () => {
     }
   };
 
+  const formatDraftTimestamp = (timestamp) => {
+    if (!timestamp) return "-";
+
+    try {
+      return new Intl.DateTimeFormat("id-ID", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(timestamp));
+    } catch {
+      return "-";
+    }
+  };
+
+  const handleDraftSelection = (event) => {
+    const draftId = event.target.value;
+
+    setSelectedDraftId(draftId);
+
+    if (!draftId) {
+      setDraftName("Draft 1");
+      resetEditor();
+      return;
+    }
+
+    const selectedDraft = savedDrafts.find((draft) => draft.id === draftId);
+
+    if (selectedDraft) {
+      const draftData = loadDraft(draftId);
+
+      if (draftData) {
+        applyDraftData(draftData);
+        setDraftName(selectedDraft.name);
+        toast.success("Draft berhasil dimuat!", { duration: 2000 });
+      }
+    }
+  };
+
   const handleSaveDraft = () => {
-    saveDraft({ personalInfo, profileSummary, sections, template, foto });
-    toast.success("Draft berhasil disimpan!", { duration: 3000 });
+    const trimmedDraftName = draftName.trim();
+    if (!trimmedDraftName) {
+      toast.error("Nama draft wajib diisi!", { duration: 3000 });
+      return;
+    }
+
+    const selectedDraft = savedDrafts.find(
+      (draft) => draft.id === selectedDraftId,
+    );
+    const sameNameDraft = savedDrafts.find(
+      (draft) => draft.name.toLowerCase() === trimmedDraftName.toLowerCase(),
+    );
+
+    const shouldUpdateSelected =
+      selectedDraft &&
+      selectedDraft.name.toLowerCase() === trimmedDraftName.toLowerCase();
+    const draftIdToUpdate = shouldUpdateSelected
+      ? selectedDraftId
+      : (sameNameDraft?.id ?? undefined);
+
+    const saved = saveDraft(getCurrentDraftData(), {
+      id: draftIdToUpdate,
+      name: trimmedDraftName,
+    });
+
+    if (!saved) {
+      toast.error("Draft gagal disimpan!", { duration: 3000 });
+      return;
+    }
+
+    refreshDrafts();
+    setSelectedDraftId(saved.id);
+    setDraftName(saved.name);
+    toast.success(
+      draftIdToUpdate
+        ? "Draft berhasil diperbarui!"
+        : "Draft baru berhasil disimpan!",
+      { duration: 3000 },
+    );
   };
 
   const handleLoadDraft = () => {
-    const draft = loadDraft();
+    if (!selectedDraftId) {
+      toast.error("Pilih draft yang ingin dimuat!", { duration: 3000 });
+      return;
+    }
+
+    const draft = loadDraft(selectedDraftId);
     if (draft) {
-      setPersonalInfo(draft.personalInfo || personalInfo);
-      setProfileSummary(draft.profileSummary || "");
-      setSections(draft.sections || sections);
-      setTemplate(draft.template || "minimal");
-      if (draft.foto) setFoto(draft.foto);
+      applyDraftData(draft);
+      const metadata = savedDrafts.find((item) => item.id === selectedDraftId);
+      if (metadata) {
+        setDraftName(metadata.name);
+      }
       toast.success("Draft berhasil dimuat!", { duration: 3000 });
     } else {
       toast.error("Tidak ada draft tersimpan!", { duration: 3000 });
@@ -295,7 +427,29 @@ const CVGenerator = () => {
   };
 
   const handleClearDraft = () => {
-    clearDraft();
+    if (!selectedDraftId) {
+      toast.error("Pilih draft yang ingin dihapus!", { duration: 3000 });
+      return;
+    }
+
+    clearDraft(selectedDraftId);
+    const draftsAfterDelete = refreshDrafts();
+
+    if (draftsAfterDelete.length > 0) {
+      const latestDraft = draftsAfterDelete[0];
+      setSelectedDraftId(latestDraft.id);
+      setDraftName(latestDraft.name);
+
+      const latestDraftData = loadDraft(latestDraft.id);
+      if (latestDraftData) {
+        applyDraftData(latestDraftData);
+      }
+    } else {
+      setSelectedDraftId("");
+      setDraftName("Draft 1");
+      resetEditor();
+    }
+
     toast.success("Draft dihapus!", { duration: 3000 });
   };
 
@@ -621,28 +775,44 @@ const CVGenerator = () => {
             </div>
           </div>
 
-          <div className="flex space-x-2 mb-6">
-            <button
-              onClick={handleSaveDraft}
-              className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Save size={16} />
-              <span>Simpan Draft</span>
-            </button>
-            <button
-              onClick={handleLoadDraft}
-              className="flex items-center space-x-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <FolderOpen size={16} />
-              <span>Muat Draft</span>
-            </button>
-            <button
-              onClick={handleClearDraft}
-              className="flex items-center space-x-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              <Trash2 size={16} />
-              <span>Hapus</span>
-            </button>
+          <div className="mb-6 p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex-1 mr-3">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Nama Draft
+                </label>
+                <input
+                  type="text"
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500"
+                  placeholder="Contoh: CV Marketing 2026"
+                />
+              </div>
+
+              <DraftDropdown
+                savedDrafts={savedDrafts}
+                selectedDraftId={selectedDraftId}
+                setSelectedDraftId={setSelectedDraftId}
+                setDraftName={setDraftName}
+                loadDraft={loadDraft}
+                applyDraftData={applyDraftData}
+                clearDraft={clearDraft}
+                resetEditor={resetEditor}
+                refreshDrafts={refreshDrafts}
+                formatDraftTimestamp={formatDraftTimestamp}
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveDraft}
+                className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Save size={16} />
+                <span>Simpan</span>
+              </button>
+            </div>
           </div>
 
           <div className="mb-8">
