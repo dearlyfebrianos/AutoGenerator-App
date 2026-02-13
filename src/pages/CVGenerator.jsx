@@ -11,6 +11,8 @@ import {
   ChevronDown,
   ChevronUp,
   Palette,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import html2pdf from "html2pdf.js";
 import { toast } from "react-hot-toast";
@@ -33,6 +35,16 @@ import {
 import { showBadgeNotification } from "../components/ui/BadgeNotification";
 import DraftDropdown from "../components/ui/DraftDropdown";
 
+// Import dnd-kit (lebih ringan dari @hello-pangea/dnd)
+import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 const COUNTRY_CODES = {
   7: "RU",
   1: "US",
@@ -51,9 +63,7 @@ const COUNTRY_CODES = {
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
-
   const digitsOnly = phone.replace(/\D/g, "");
-
   if (phone.startsWith("+")) {
     try {
       const phoneNumber = parsePhoneNumberFromString(phone);
@@ -65,7 +75,6 @@ const formatPhoneNumber = (phone) => {
     }
     return phone;
   }
-
   if (
     digitsOnly.length >= 10 &&
     digitsOnly.length <= 13 &&
@@ -89,7 +98,6 @@ const formatPhoneNumber = (phone) => {
       console.warn("Error formatting Indonesian number:", error);
     }
   }
-
   if (digitsOnly.length >= 8) {
     const countryPrefixes = [
       "1",
@@ -105,7 +113,6 @@ const formatPhoneNumber = (phone) => {
       "91",
       "62",
     ];
-
     for (let prefix of countryPrefixes) {
       if (digitsOnly.startsWith(prefix)) {
         try {
@@ -143,7 +150,6 @@ const formatPhoneNumber = (phone) => {
       }
     }
   }
-
   return phone;
 };
 
@@ -171,6 +177,178 @@ const createDefaultSections = () => [
   },
 ];
 
+// Komponen Section yang bisa di-drag
+const SortableSection = ({
+  section,
+  index,
+  sectionsLength,
+  onRemove,
+  onUpdateItem,
+  onRemoveItem,
+  onAddItem,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: section.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 100 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="mb-8">
+      <div className="flex justify-between items-center mb-4">
+        {/* Handle drag (Desktop) */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 mr-2 text-gray-400 hover:text-gray-600 md:block hidden"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
+        </div>
+
+        <input
+          type="text"
+          value={section.title}
+          onChange={(e) => onUpdateItem(section.id, "title", e.target.value)}
+          className="text-xl font-bold text-gray-800 dark:text-white pb-2 border-b-2 border-purple-600 dark:border-purple-500 bg-transparent focus:outline-none flex-1"
+          placeholder="JUDUL SECTION"
+          style={{ textTransform: "uppercase" }}
+        />
+
+        {/* Mobile Reorder Buttons */}
+        <div className="flex space-x-1 md:hidden">
+          {index > 0 && (
+            <button
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent("moveSection", {
+                    detail: { from: index, to: index - 1 },
+                  }),
+                )
+              }
+              className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded"
+              title="Pindah ke atas"
+            >
+              <ArrowUp size={16} />
+            </button>
+          )}
+          {index < sectionsLength - 1 && (
+            <button
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent("moveSection", {
+                    detail: { from: index, to: index + 1 },
+                  }),
+                )
+              }
+              className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded"
+              title="Pindah ke bawah"
+            >
+              <ArrowDown size={16} />
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={() => onRemove(section.id)}
+          className="ml-4 text-red-600 dark:text-red-400 hover:text-red-800 transition-colors"
+        >
+          <Trash2 size={20} />
+        </button>
+      </div>
+
+      {section.items.map((item) => (
+        <div
+          key={item.id}
+          className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
+        >
+          <div className="flex justify-between items-start mb-3">
+            <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+              Item
+            </h4>
+            {section.items.length > 1 && (
+              <button
+                onClick={() => onRemoveItem(section.id, item.id)}
+                className="text-red-500 dark:text-red-400 hover:text-red-700 transition-colors"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
+          </div>
+          <div className="space-y-3">
+            <input
+              type="text"
+              value={item.judul}
+              onChange={(e) =>
+                onUpdateItem(section.id, item.id, "judul", e.target.value)
+              }
+              className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+              placeholder="Judul (mis. Nama Institusi / Posisi)"
+            />
+            <input
+              type="text"
+              value={item.subjudul}
+              onChange={(e) =>
+                onUpdateItem(section.id, item.id, "subjudul", e.target.value)
+              }
+              className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+              placeholder="Sub-judul (mis. Jurusan / Perusahaan)"
+            />
+            <input
+              type="text"
+              value={item.tahun}
+              onChange={(e) =>
+                onUpdateItem(section.id, item.id, "tahun", e.target.value)
+              }
+              className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+              placeholder="Tahun / Periode"
+            />
+            <textarea
+              value={item.deskripsi}
+              onChange={(e) =>
+                onUpdateItem(section.id, item.id, "deskripsi", e.target.value)
+              }
+              className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
+              rows="3"
+              placeholder="Deskripsi / Detail"
+            />
+          </div>
+        </div>
+      ))}
+
+      <button
+        onClick={() => onAddItem(section.id)}
+        className="w-full py-2 border-2 border-dashed border-purple-300 dark:border-purple-500 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-all flex items-center justify-center space-x-2"
+      >
+        <Plus size={18} />
+        <span>Tambah Item</span>
+      </button>
+    </div>
+  );
+};
+
 const CVGenerator = () => {
   const [personalInfo, setPersonalInfo] = useState(DEFAULT_PERSONAL_INFO);
   const [profileSummary, setProfileSummary] = useState("");
@@ -183,8 +361,32 @@ const CVGenerator = () => {
   const [isDraftReady, setIsDraftReady] = useState(false);
   const [isTemplateOpen, setIsTemplateOpen] = useState(false);
   const [isDraftOpen, setIsDraftOpen] = useState(false);
+  const [activeId, setActiveId] = useState(null);
   const fileInputRef = useRef(null);
   const cvRef = useRef(null);
+
+  // Load drafts on mount
+  useEffect(() => {
+    const drafts = listDrafts();
+    setSavedDrafts(drafts);
+    setDraftName("Draft 1");
+  }, []);
+
+  // Handle mobile reordering
+  useEffect(() => {
+    const handleMoveSection = (e) => {
+      const { from, to } = e.detail;
+      setSections((prev) => {
+        const newSections = [...prev];
+        const [moved] = newSections.splice(from, 1);
+        newSections.splice(to, 0, moved);
+        return newSections;
+      });
+    };
+
+    window.addEventListener("moveSection", handleMoveSection);
+    return () => window.removeEventListener("moveSection", handleMoveSection);
+  }, []);
 
   const toggleTemplate = () => {
     setIsTemplateOpen((prev) => !prev);
@@ -202,6 +404,56 @@ const CVGenerator = () => {
     foto,
   });
 
+  // Tambahkan ini di dalam CVGenerator, setelah fungsi-fungsi lain seperti handleFotoChange, dll.
+  const handleSaveDraft = () => {
+    const trimmedName = draftName.trim();
+    if (!trimmedName) {
+      toast.error("Nama draft wajib diisi!", { duration: 3000 });
+      return;
+    }
+
+    const currentData = getCurrentDraftData();
+
+    // Cek apakah sudah ada draft dengan nama yang sama
+    const existingDraft = savedDrafts.find(
+      (draft) => draft.name.toLowerCase() === trimmedName.toLowerCase(),
+    );
+
+    let draftIdToUse = null;
+    if (existingDraft) {
+      // Jika sudah ada, update draft tersebut
+      draftIdToUse = existingDraft.id;
+    } else {
+      // Jika belum ada, buat ID baru
+      draftIdToUse = `draft_${Date.now()}`;
+    }
+
+    const saved = saveDraft(currentData, {
+      id: draftIdToUse,
+      name: trimmedName,
+    });
+
+    if (!saved) {
+      toast.error("Gagal menyimpan draft!", { duration: 3000 });
+      return;
+    }
+
+    // Refresh daftar draft
+    const updatedDrafts = listDrafts();
+    setSavedDrafts(updatedDrafts);
+
+    // Set sebagai draft aktif
+    setSelectedDraftId(draftIdToUse);
+    setDraftName(trimmedName);
+
+    toast.success(
+      existingDraft
+        ? "Draft berhasil diperbarui!"
+        : "Draft baru berhasil disimpan!",
+      { duration: 3000 },
+    );
+  };
+
   const resetEditor = () => {
     setPersonalInfo(DEFAULT_PERSONAL_INFO);
     setProfileSummary("");
@@ -215,7 +467,6 @@ const CVGenerator = () => {
 
   const applyDraftData = (draft) => {
     if (!draft) return;
-
     setPersonalInfo({
       ...DEFAULT_PERSONAL_INFO,
       ...(draft.personalInfo || {}),
@@ -228,7 +479,6 @@ const CVGenerator = () => {
     );
     setTemplate(draft.template || "minimal");
     setFoto(draft.foto || null);
-
     if (!draft.foto && fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -239,14 +489,6 @@ const CVGenerator = () => {
     setSavedDrafts(drafts);
     return drafts;
   };
-
-  useEffect(() => {
-    const drafts = listDrafts();
-    setSavedDrafts(drafts);
-
-    setSelectedDraftId("");
-    setDraftName("");
-  }, []);
 
   const addSection = () => {
     const newSection = {
@@ -303,6 +545,12 @@ const CVGenerator = () => {
   };
 
   const updateItem = (sectionId, itemId, field, value) => {
+    if (typeof itemId === "string") {
+      // Ini adalah update untuk title section
+      updateSection(sectionId, field, value);
+      return;
+    }
+
     setSections(
       sections.map((section) => {
         if (section.id === sectionId) {
@@ -338,7 +586,6 @@ const CVGenerator = () => {
 
   const formatDraftTimestamp = (timestamp) => {
     if (!timestamp) return "-";
-
     try {
       return new Intl.DateTimeFormat("id-ID", {
         dateStyle: "medium",
@@ -349,116 +596,20 @@ const CVGenerator = () => {
     }
   };
 
-  const handleDraftSelection = (event) => {
-    const draftId = event.target.value;
-
-    setSelectedDraftId(draftId);
-
-    if (!draftId) {
-      setDraftName("Draft 1");
-      resetEditor();
-      return;
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setSections((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
     }
-
-    const selectedDraft = savedDrafts.find((draft) => draft.id === draftId);
-
-    if (selectedDraft) {
-      const draftData = loadDraft(draftId);
-
-      if (draftData) {
-        applyDraftData(draftData);
-        setDraftName(selectedDraft.name);
-        toast.success("Draft berhasil dimuat!", { duration: 2000 });
-      }
-    }
+    setActiveId(null);
   };
 
-  const handleSaveDraft = () => {
-    const trimmedDraftName = draftName.trim();
-    if (!trimmedDraftName) {
-      toast.error("Nama draft wajib diisi!", { duration: 3000 });
-      return;
-    }
-
-    const selectedDraft = savedDrafts.find(
-      (draft) => draft.id === selectedDraftId,
-    );
-    const sameNameDraft = savedDrafts.find(
-      (draft) => draft.name.toLowerCase() === trimmedDraftName.toLowerCase(),
-    );
-
-    const shouldUpdateSelected =
-      selectedDraft &&
-      selectedDraft.name.toLowerCase() === trimmedDraftName.toLowerCase();
-    const draftIdToUpdate = shouldUpdateSelected
-      ? selectedDraftId
-      : (sameNameDraft?.id ?? undefined);
-
-    const saved = saveDraft(getCurrentDraftData(), {
-      id: draftIdToUpdate,
-      name: trimmedDraftName,
-    });
-
-    if (!saved) {
-      toast.error("Draft gagal disimpan!", { duration: 3000 });
-      return;
-    }
-
-    refreshDrafts();
-    setSelectedDraftId(saved.id);
-    setDraftName(saved.name);
-    toast.success(
-      draftIdToUpdate
-        ? "Draft berhasil diperbarui!"
-        : "Draft baru berhasil disimpan!",
-      { duration: 3000 },
-    );
-  };
-
-  const handleLoadDraft = () => {
-    if (!selectedDraftId) {
-      toast.error("Pilih draft yang ingin dimuat!", { duration: 3000 });
-      return;
-    }
-
-    const draft = loadDraft(selectedDraftId);
-    if (draft) {
-      applyDraftData(draft);
-      const metadata = savedDrafts.find((item) => item.id === selectedDraftId);
-      if (metadata) {
-        setDraftName(metadata.name);
-      }
-      toast.success("Draft berhasil dimuat!", { duration: 3000 });
-    } else {
-      toast.error("Tidak ada draft tersimpan!", { duration: 3000 });
-    }
-  };
-
-  const handleClearDraft = () => {
-    if (!selectedDraftId) {
-      toast.error("Pilih draft yang ingin dihapus!", { duration: 3000 });
-      return;
-    }
-
-    clearDraft(selectedDraftId);
-    const draftsAfterDelete = refreshDrafts();
-
-    if (draftsAfterDelete.length > 0) {
-      const latestDraft = draftsAfterDelete[0];
-      setSelectedDraftId(latestDraft.id);
-      setDraftName(latestDraft.name);
-
-      const latestDraftData = loadDraft(latestDraft.id);
-      if (latestDraftData) {
-        applyDraftData(latestDraftData);
-      }
-    } else {
-      setSelectedDraftId("");
-      setDraftName("Draft 1");
-      resetEditor();
-    }
-
-    toast.success("Draft dihapus!", { duration: 3000 });
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
   };
 
   const handleDownloadDOCX = () => {
@@ -642,7 +793,7 @@ const CVGenerator = () => {
 
     const opt = {
       margin: [10, 10, 10, 10],
-      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, " ").toUpperCase() || "SAYA"}.pdf`,
+      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase() || "SAYA"}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
         scale: 2,
@@ -773,7 +924,6 @@ const CVGenerator = () => {
                 />
               </div>
             </button>
-
             <div
               className="overflow-hidden transition-all duration-300 ease-in-out"
               style={{
@@ -847,7 +997,6 @@ const CVGenerator = () => {
                 />
               </div>
             </button>
-
             <div
               className="transition-all duration-300 ease-in-out"
               style={{
@@ -869,7 +1018,6 @@ const CVGenerator = () => {
                     placeholder="Contoh: CV Marketing 2026"
                   />
                 </div>
-
                 <div className="flex items-center gap-2 mt-4 relative z-[99999]">
                   <DraftDropdown
                     savedDrafts={savedDrafts}
@@ -883,7 +1031,6 @@ const CVGenerator = () => {
                     refreshDrafts={refreshDrafts}
                     formatDraftTimestamp={formatDraftTimestamp}
                   />
-
                   <button
                     onClick={handleSaveDraft}
                     className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"
@@ -1027,6 +1174,7 @@ const CVGenerator = () => {
               )}
             </div>
           </div>
+
           <div className="mb-10">
             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 pb-2 border-b-2 border-purple-600 dark:border-purple-500">
               Deskripsi Diri (Ringkasan Profil)
@@ -1038,103 +1186,41 @@ const CVGenerator = () => {
               placeholder="Contoh: Lulusan S1..."
             />
           </div>
-          {sections.map((section) => (
-            <div key={section.id} className="mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <input
-                  type="text"
-                  value={section.title}
-                  onChange={(e) =>
-                    updateSection(section.id, "title", e.target.value)
-                  }
-                  className="text-xl font-bold text-gray-800 dark:text-white pb-2 border-b-2 border-purple-600 dark:border-purple-500 bg-transparent focus:outline-none flex-1"
-                  placeholder="JUDUL SECTION"
-                  style={{ textTransform: "uppercase" }}
+
+          {/* Section Reordering */}
+          <DndContext
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+            onDragStart={handleDragStart}
+          >
+            <SortableContext
+              items={sections.map((section) => section.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {sections.map((section, index) => (
+                <SortableSection
+                  key={section.id}
+                  section={section}
+                  index={index}
+                  sectionsLength={sections.length}
+                  onRemove={removeSection}
+                  onUpdateItem={updateItem}
+                  onRemoveItem={removeItem}
+                  onAddItem={addItem}
                 />
-                <button
-                  onClick={() => removeSection(section.id)}
-                  className="ml-4 text-red-600 dark:text-red-400 hover:text-red-800 transition-colors"
-                >
-                  <Trash2 size={20} />
-                </button>
-              </div>
-              {section.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-300">
-                      Item
-                    </h4>
-                    {section.items.length > 1 && (
-                      <button
-                        onClick={() => removeItem(section.id, item.id)}
-                        className="text-red-500 dark:text-red-400 hover:text-red-700 transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    <input
-                      type="text"
-                      value={item.judul}
-                      onChange={(e) =>
-                        updateItem(section.id, item.id, "judul", e.target.value)
-                      }
-                      className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                      placeholder="Judul (mis. Nama Institusi / Posisi)"
-                    />
-                    <input
-                      type="text"
-                      value={item.subjudul}
-                      onChange={(e) =>
-                        updateItem(
-                          section.id,
-                          item.id,
-                          "subjudul",
-                          e.target.value,
-                        )
-                      }
-                      className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                      placeholder="Sub-judul (mis. Jurusan / Perusahaan)"
-                    />
-                    <input
-                      type="text"
-                      value={item.tahun}
-                      onChange={(e) =>
-                        updateItem(section.id, item.id, "tahun", e.target.value)
-                      }
-                      className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                      placeholder="Tahun / Periode"
-                    />
-                    <textarea
-                      value={item.deskripsi}
-                      onChange={(e) =>
-                        updateItem(
-                          section.id,
-                          item.id,
-                          "deskripsi",
-                          e.target.value,
-                        )
-                      }
-                      className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                      rows="3"
-                      placeholder="Deskripsi / Detail"
-                    />
+              ))}
+            </SortableContext>
+            <DragOverlay>
+              {activeId ? (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 w-full max-w-2xl">
+                  <div className="text-xl font-bold text-gray-800 dark:text-white">
+                    Sedang Dipindahkan...
                   </div>
                 </div>
-              ))}
-              <button
-                onClick={() => addItem(section.id)}
-                className="w-full py-2 border-2 border-dashed border-purple-300 dark:border-purple-500 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-all flex items-center justify-center space-x-2"
-              >
-                <Plus size={18} />
-                <span>Tambah Item</span>
-              </button>
-            </div>
-          ))}
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+
           <button
             onClick={addSection}
             className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center space-x-2 transform hover:scale-[1.02]"
@@ -1144,6 +1230,7 @@ const CVGenerator = () => {
           </button>
         </div>
       </div>
+
       <div className="lg:sticky lg:top-24 h-fit">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
           <div className="flex justify-between items-center mb-6">
@@ -1167,6 +1254,7 @@ const CVGenerator = () => {
               </button>
             </div>
           </div>
+
           <div
             ref={cvRef}
             className={
@@ -1266,6 +1354,7 @@ const CVGenerator = () => {
                 </>
               )}
             </div>
+
             {profileSummary && (
               <div className="mb-2 text-justify">
                 <p className="leading-6 text-gray-800 dark:text-gray-300">
@@ -1273,6 +1362,7 @@ const CVGenerator = () => {
                 </p>
               </div>
             )}
+
             {sections.map((section) => (
               <div key={section.id} className="mb-6">
                 <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-3 mb-4">
