@@ -8,6 +8,9 @@ import {
   FolderOpen,
   FileText,
   X,
+  ChevronDown,
+  ChevronUp,
+  Palette,
 } from "lucide-react";
 import html2pdf from "html2pdf.js";
 import { toast } from "react-hot-toast";
@@ -178,13 +181,18 @@ const CVGenerator = () => {
   const [savedDrafts, setSavedDrafts] = useState([]);
   const [selectedDraftId, setSelectedDraftId] = useState("");
   const [isDraftReady, setIsDraftReady] = useState(false);
-  const [isOpen, setIsOpen] = useState(false)
+  const [isTemplateOpen, setIsTemplateOpen] = useState(false);
+  const [isDraftOpen, setIsDraftOpen] = useState(false);
   const fileInputRef = useRef(null);
   const cvRef = useRef(null);
 
+  const toggleTemplate = () => {
+    setIsTemplateOpen((prev) => !prev);
+  };
+
   const toggleDraft = () => {
-    setIsOpen(prev => !prev);
-  }
+    setIsDraftOpen((prev) => !prev);
+  };
 
   const getCurrentDraftData = () => ({
     personalInfo,
@@ -729,7 +737,7 @@ const CVGenerator = () => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="space-y-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 relative">
           <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6 flex items-center">
             <Briefcase
               className="mr-3 text-purple-600 dark:text-purple-400"
@@ -738,80 +746,155 @@ const CVGenerator = () => {
             CV Generator
           </h2>
 
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Template CV
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {[
-                {
-                  id: "minimal",
-                  name: "Minimalis",
-                  desc: "Bersih & profesional",
-                },
-                {
-                  id: "corporate",
-                  name: "Korporat",
-                  desc: "Formal & terstruktur",
-                },
-              ].map((tpl) => (
-                <button
-                  key={tpl.id}
-                  onClick={() => setTemplate(tpl.id)}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    template === tpl.id
-                      ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30"
-                      : "border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  }`}
-                >
-                  <div className="font-bold text-gray-800 dark:text-white">
-                    {tpl.name}
-                  </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {tpl.desc}
-                  </div>
-                </button>
-              ))}
+          {/* Template Selection - Collapsible */}
+          <div className="mb-6 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden relative z-10">
+            <button
+              onClick={toggleTemplate}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+            >
+              <div className="flex items-center space-x-2">
+                <Palette
+                  className="text-purple-600 dark:text-purple-400"
+                  size={20}
+                />
+                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                  Pilih Template CV
+                </span>
+              </div>
+              <div
+                className="transition-transform duration-300"
+                style={{
+                  transform: isTemplateOpen ? "rotate(180deg)" : "rotate(0deg)",
+                }}
+              >
+                <ChevronDown
+                  className="text-gray-600 dark:text-gray-400"
+                  size={20}
+                />
+              </div>
+            </button>
+
+            <div
+              className="overflow-hidden transition-all duration-300 ease-in-out"
+              style={{
+                maxHeight: isTemplateOpen ? "500px" : "0px",
+                opacity: isTemplateOpen ? 1 : 0,
+              }}
+            >
+              <div className="p-4 grid grid-cols-1 gap-3">
+                {[
+                  {
+                    id: "minimal",
+                    name: "Minimalis",
+                    desc: "Bersih & profesional",
+                  },
+                  {
+                    id: "corporate",
+                    name: "Korporat",
+                    desc: "Formal & terstruktur",
+                  }
+                ].map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => {
+                      setTemplate(tpl.id);
+                      toast.success(`Template ${tpl.name} dipilih!`, {
+                        duration: 2000,
+                      });
+                    }}
+                    className={`p-3 rounded-lg border-2 transition-all text-left transform hover:scale-[1.02] ${
+                      template === tpl.id
+                        ? "border-purple-500 bg-purple-50 dark:bg-purple-900/30 shadow-md"
+                        : "border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    <div className="font-bold text-gray-800 dark:text-white">
+                      {tpl.name}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {tpl.desc}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="mb-6 p-4 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700/50">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex-1 mr-3">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Nama Draft
-                </label>
-                <input
-                  type="text"
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500"
-                  placeholder="Contoh: CV Marketing 2026"
+          {/* Draft Section - Collapsible */}
+          <div className="mb-6 border border-gray-200 dark:border-gray-600 rounded-xl relative z-[9999]">
+            <button
+              onClick={toggleDraft}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 rounded-xl"
+            >
+              <div className="flex items-center space-x-2">
+                <FolderOpen
+                  className="text-blue-600 dark:text-blue-400"
+                  size={20}
+                />
+                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                  Kelola Draft
+                </span>
+              </div>
+              <div
+                className="transition-transform duration-300"
+                style={{
+                  transform: isDraftOpen ? "rotate(180deg)" : "rotate(0deg)",
+                }}
+              >
+                <ChevronDown
+                  className="text-gray-600 dark:text-gray-400"
+                  size={20}
                 />
               </div>
+            </button>
 
-              <DraftDropdown
-                savedDrafts={savedDrafts}
-                selectedDraftId={selectedDraftId}
-                setSelectedDraftId={setSelectedDraftId}
-                setDraftName={setDraftName}
-                loadDraft={loadDraft}
-                applyDraftData={applyDraftData}
-                clearDraft={clearDraft}
-                resetEditor={resetEditor}
-                refreshDrafts={refreshDrafts}
-                formatDraftTimestamp={formatDraftTimestamp}
-              />
-            </div>
+            <div
+              className="transition-all duration-300 ease-in-out"
+              style={{
+                maxHeight: isDraftOpen ? "500px" : "0px",
+                opacity: isDraftOpen ? 1 : 0,
+                overflow: isDraftOpen ? "visible" : "hidden",
+              }}
+            >
+              <div className="p-4">
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Nama Draft
+                  </label>
+                  <input
+                    type="text"
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 transition-all"
+                    placeholder="Contoh: CV Marketing 2026"
+                  />
+                </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveDraft}
-                className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Save size={16} />
-                <span>Simpan</span>
-              </button>
+                <div className="relative z-[99999]">
+                  <DraftDropdown
+                    savedDrafts={savedDrafts}
+                    selectedDraftId={selectedDraftId}
+                    setSelectedDraftId={setSelectedDraftId}
+                    setDraftName={setDraftName}
+                    loadDraft={loadDraft}
+                    applyDraftData={applyDraftData}
+                    clearDraft={clearDraft}
+                    resetEditor={resetEditor}
+                    refreshDrafts={refreshDrafts}
+                    formatDraftTimestamp={formatDraftTimestamp}
+                  />
+                </div>
+
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={handleSaveDraft}
+                    className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"
+                  >
+                    <Save size={16} />
+                    <span>Simpan</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1056,7 +1139,7 @@ const CVGenerator = () => {
           ))}
           <button
             onClick={addSection}
-            className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center space-x-2"
+            className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center space-x-2 transform hover:scale-[1.02]"
           >
             <Plus size={20} />
             <span>Tambah Section Baru</span>
@@ -1072,14 +1155,14 @@ const CVGenerator = () => {
             <div className="flex space-x-2">
               <button
                 onClick={handleDownloadCV}
-                className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all"
+                className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105"
               >
                 <Download size={18} />
                 <span>PDF</span>
               </button>
               <button
                 onClick={handleDownloadDOCX}
-                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all"
+                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"
               >
                 <FileText size={18} />
                 <span>Word</span>
@@ -1088,7 +1171,11 @@ const CVGenerator = () => {
           </div>
           <div
             ref={cvRef}
-            className={`p-8 min-h-[800px] ${getTemplateClass()}`}
+            className={
+              template === "elegant"
+                ? ""
+                : `p-8 min-h-[800px] ${getTemplateClass()}`
+            }
             style={{ fontFamily: "'Times New Roman', Times, serif" }}
           >
             <div className="text-center mb-6 pb-6">

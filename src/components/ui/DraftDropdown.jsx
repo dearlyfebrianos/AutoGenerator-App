@@ -16,7 +16,9 @@ export default function DraftDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const wrapperRef = useRef(null);
+  const buttonRef = useRef(null);
 
   // Detect mobile
   useEffect(() => {
@@ -25,6 +27,49 @@ export default function DraftDropdown({
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // Calculate dropdown position when opened
+  useEffect(() => {
+    if (open && buttonRef.current && !isMobile) {
+      const updatePosition = () => {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setDropdownPosition({
+          top: rect.bottom + 8,
+          left: rect.left,
+        });
+      };
+      
+      updatePosition();
+      
+      // Update position on scroll
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }
+  }, [open, isMobile]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl + / to toggle dropdown
+      if (e.ctrlKey && e.key === '/') {
+        e.preventDefault();
+        setOpen(prev => !prev);
+      }
+      // Escape to close dropdown
+      if (e.key === 'Escape' && open) {
+        e.preventDefault();
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
 
   // Close when click outside (desktop only)
   useEffect(() => {
@@ -75,17 +120,19 @@ export default function DraftDropdown({
   };
 
   return (
-    <div className="relative inline-block" ref={wrapperRef}>
+    <div className="relative" ref={wrapperRef}>
       {/* TOGGLE BUTTON */}
       <button
+        ref={buttonRef}
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1f2a44] hover:bg-[#263357] text-gray-200 text-sm transition"
+        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1f2a44] hover:bg-[#263357] text-gray-200 text-sm transition w-auto"
+        title="Ctrl + / untuk toggle"
       >
         <Folder size={16} />
         Draft {savedDrafts.length > 0 && `(${savedDrafts.length})`}
       </button>
 
-      {/* ================= DESKTOP DROPDOWN ================= */}
+      {/* ================= DESKTOP DROPDOWN - FIXED POSITION ================= */}
       <AnimatePresence>
         {!isMobile && open && (
           <motion.div
@@ -93,7 +140,14 @@ export default function DraftDropdown({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="absolute top-full right-0 mt-2 w-80 bg-[#0f172a] border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden"
+            className="bg-[#0f172a] border border-gray-700 rounded-xl shadow-2xl overflow-hidden"
+            style={{ 
+              position: 'fixed',
+              top: `${dropdownPosition.top}px`,
+              left: `${dropdownPosition.left}px`,
+              width: '380px',
+              zIndex: 999999,
+            }}
           >
             <Header handleNewDraft={handleNewDraft} isMobile={false} />
 
@@ -117,7 +171,8 @@ export default function DraftDropdown({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              style={{ zIndex: 999998 }}
               onClick={() => setOpen(false)}
             />
 
@@ -135,8 +190,8 @@ export default function DraftDropdown({
                   setOpen(false);
                 }
               }}
-              className="fixed bottom-0 left-0 right-0 bg-[#0f172a] rounded-t-2xl shadow-2xl z-50"
-              style={{ maxHeight: "85vh", touchAction: "none" }}
+              className="fixed bottom-0 left-0 right-0 bg-[#0f172a] rounded-t-2xl shadow-2xl"
+              style={{ maxHeight: "85vh", touchAction: "none", zIndex: 999999 }}
             >
               {/* Drag handle */}
               <div className="flex justify-center pt-3">
@@ -199,7 +254,7 @@ function DraftList({
   }
 
   return (
-    <div className="divide-y divide-gray-800">
+    <div className="divide-y divide-gray-800 max-h-[400px] overflow-y-auto">
       {savedDrafts.map((draft) => (
         <div
           key={draft.id}
@@ -207,7 +262,7 @@ function DraftList({
             selectedDraftId === draft.id ? "bg-[#1e293b]" : ""
           }`}
         >
-          <div onClick={() => handleLoad(draft)} className="flex-1">
+          <div onClick={() => handleLoad(draft)} className="flex-1 min-w-0">
             <p className="text-sm text-white font-medium truncate">
               {draft.name}
             </p>
@@ -219,8 +274,11 @@ function DraftList({
           </div>
 
           <button
-            onClick={() => handleDelete(draft.id)}
-            className="ml-3 text-gray-400 hover:text-red-500 transition"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(draft.id);
+            }}
+            className="ml-3 text-gray-400 hover:text-red-500 transition flex-shrink-0"
           >
             <Trash2 size={14} />
           </button>
