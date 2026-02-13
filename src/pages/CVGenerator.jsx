@@ -38,6 +38,7 @@ import {
 } from "../utils/draftManager";
 import { showBadgeNotification } from "../components/ui/BadgeNotification";
 import DraftDropdown from "../components/ui/DraftDropdown";
+import SessionRecoveryModal from "../components/ui/SessionRecoveryModal";
 import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -47,7 +48,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion, AnimatePresence } from "framer-motion";
-import SessionRecoveryModal from './../components/ui/SessionRecoveryModal';
 
 const COUNTRY_CODES = {
   7: "RU",
@@ -630,9 +630,6 @@ const CVGenerator = () => {
       if (recoveryData.draftName) {
         setDraftName(recoveryData.draftName);
       }
-      if (recoveryData.selectedDraftId) {
-        setSelectedDraftId(recoveryData.selectedDraftId);
-      }
       toast.success("Data berhasil dipulihkan!", { duration: 3000 });
       console.log("✅ Session recovered");
     }
@@ -642,24 +639,7 @@ const CVGenerator = () => {
   const handleDiscardSession = () => {
     localStorage.removeItem("cv_session_recovery");
     setShowRecoveryModal(false);
-    
-    const lastSelectedDraftId = localStorage.getItem("cv_last_selected_draft");
-    const drafts = listDrafts();
-    
-    if (lastSelectedDraftId && drafts.length > 0) {
-      const draftExists = drafts.find((d) => d.id === lastSelectedDraftId);
-      if (draftExists) {
-        const draftData = loadDraft(lastSelectedDraftId);
-        if (draftData) {
-          applyDraftData(draftData);
-          setSelectedDraftId(lastSelectedDraftId);
-          setDraftName(draftExists.name);
-          console.log("✅ Draft loaded:", draftExists.name);
-        }
-      }
-    } else {
-      setDraftName("Draft 1");
-    }
+    setDraftName("Draft 1");
   };
 
   useEffect(() => {
@@ -669,67 +649,62 @@ const CVGenerator = () => {
 
     const sessionTimeout = setTimeout(() => {
       const sessionData = getCurrentDraftData();
+      
       localStorage.setItem("cv_session_recovery", JSON.stringify({
         ...sessionData,
         timestamp: Date.now(),
         draftName: draftName,
         selectedDraftId: selectedDraftId,
       }));
-      console.log("💾 Session recovery saved");
+      console.log("💾 Session recovery saved", { selectedDraftId });
     }, 1000);
 
     return () => clearTimeout(sessionTimeout);
   }, [personalInfo, profileSummary, sections, template, foto, draftName, selectedDraftId, isInitialLoad]);
 
-  useEffect(() => {
-    if (isInitialLoad || !selectedDraftId) {
+useEffect(() => {
+  if (isInitialLoad || !selectedDraftId) return;
+
+  if (autoSaveTimeoutRef.current) {
+    clearTimeout(autoSaveTimeoutRef.current);
+  }
+
+  setAutoSaveStatus("saving");
+
+  autoSaveTimeoutRef.current = setTimeout(() => {
+    const currentData = getCurrentDraftData();
+    const currentDataString = JSON.stringify(currentData);
+
+    if (lastSavedDataRef.current === currentDataString) {
+      setAutoSaveStatus("saved");
       return;
     }
 
+    const currentDraft = savedDrafts.find((d) => d.id === selectedDraftId);
+    if (currentDraft) {
+      const saved = saveDraft(currentData, {
+        id: selectedDraftId,
+        name: currentDraft.name,
+      });
+
+      if (saved) {
+        lastSavedDataRef.current = currentDataString;
+        setAutoSaveStatus("saved");
+        console.log("💾 Auto-saved:", currentDraft.name);
+        setTimeout(() => setAutoSaveStatus("idle"), 1000);
+      } else {
+        setAutoSaveStatus("idle");
+        console.error("❌ Auto-save failed");
+      }
+    }
+  }, 300);
+
+  return () => {
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
-
-    setAutoSaveStatus("saving");
-
-    autoSaveTimeoutRef.current = setTimeout(() => {
-      const currentData = getCurrentDraftData();
-      const currentDataString = JSON.stringify(currentData);
-
-      if (lastSavedDataRef.current === currentDataString) {
-        setAutoSaveStatus("saved");
-        return;
-      }
-
-      const currentDraft = savedDrafts.find((d) => d.id === selectedDraftId);
-
-      if (currentDraft) {
-        const saved = saveDraft(currentData, {
-          id: selectedDraftId,
-          name: currentDraft.name,
-        });
-
-        if (saved) {
-          lastSavedDataRef.current = currentDataString;
-          setAutoSaveStatus("saved");
-          console.log("💾 Auto-saved:", currentDraft.name);
-
-          setTimeout(() => {
-            setAutoSaveStatus("idle");
-          }, 2000);
-        } else {
-          setAutoSaveStatus("idle");
-          console.error("❌ Auto-save failed");
-        }
-      }
-    }, 2000);
-
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-      }
-    };
-  }, [personalInfo, profileSummary, sections, template, foto, selectedDraftId, isInitialLoad, savedDrafts]);
+  };
+}, [personalInfo, profileSummary, sections, template, foto, selectedDraftId, isInitialLoad, savedDrafts]);
 
   useEffect(() => {
     const drafts = listDrafts();
@@ -738,58 +713,61 @@ const CVGenerator = () => {
     const sessionRecovery = localStorage.getItem("cv_session_recovery");
     const lastSelectedDraftId = localStorage.getItem("cv_last_selected_draft");
 
-    if (sessionRecovery) {
+    const checkSessionRecovery = (sessionRecovery) => {
       try {
         const recoveryDataParsed = JSON.parse(sessionRecovery);
         const recoveryAge = Date.now() - (recoveryDataParsed.timestamp || 0);
 
         if (recoveryAge < 86400000) {
+          if (recoveryDataParsed.selectedDraftId) {
+            const draftData = loadDraft(recoveryDataParsed.selectedDraftId);
+            if (draftData) {
+              applyDraftData(draftData);
+              setSelectedDraftId(recoveryDataParsed.selectedDraftId);
+              setDraftName(recoveryDataParsed.draftName || "Draft");
+              console.log("✅ Auto-loaded from draft (via recovery):", recoveryDataParsed.draftName);
+              localStorage.removeItem("cv_session_recovery");
+              return;
+            }
+          }
+          
           setRecoveryData(recoveryDataParsed);
           setShowRecoveryModal(true);
         } else {
           localStorage.removeItem("cv_session_recovery");
-          
-          if (lastSelectedDraftId && drafts.length > 0) {
-            const draftExists = drafts.find((d) => d.id === lastSelectedDraftId);
-            if (draftExists) {
-              const draftData = loadDraft(lastSelectedDraftId);
-              if (draftData) {
-                applyDraftData(draftData);
-                setSelectedDraftId(lastSelectedDraftId);
-                setDraftName(draftExists.name);
-                console.log("✅ Draft loaded:", draftExists.name);
-              }
-            } else {
-              localStorage.removeItem("cv_last_selected_draft");
-              setDraftName("Draft 1");
-            }
-          } else {
-            setDraftName("Draft 1");
-          }
+          setDraftName("Draft 1");
         }
       } catch (error) {
         console.error("Error loading session recovery:", error);
         localStorage.removeItem("cv_session_recovery");
         setDraftName("Draft 1");
       }
-    } else {
-      if (lastSelectedDraftId && drafts.length > 0) {
-        const draftExists = drafts.find((d) => d.id === lastSelectedDraftId);
-        if (draftExists) {
-          const draftData = loadDraft(lastSelectedDraftId);
-          if (draftData) {
-            applyDraftData(draftData);
-            setSelectedDraftId(lastSelectedDraftId);
-            setDraftName(draftExists.name);
-            console.log("✅ Draft loaded:", draftExists.name);
-          }
-        } else {
-          localStorage.removeItem("cv_last_selected_draft");
-          setDraftName("Draft 1");
+    };
+
+    if (lastSelectedDraftId && drafts.length > 0) {
+      const draftExists = drafts.find((d) => d.id === lastSelectedDraftId);
+      
+      if (draftExists) {
+        const draftData = loadDraft(lastSelectedDraftId);
+        if (draftData) {
+          applyDraftData(draftData);
+          setSelectedDraftId(lastSelectedDraftId);
+          setDraftName(draftExists.name);
+          console.log("✅ Auto-loaded draft (skip modal):", draftExists.name);
+          
+          localStorage.removeItem("cv_session_recovery");
         }
       } else {
-        setDraftName("Draft 1");
+        localStorage.removeItem("cv_last_selected_draft");
+        
+        checkSessionRecovery(sessionRecovery);
       }
+    } 
+    else if (sessionRecovery) {
+      checkSessionRecovery(sessionRecovery);
+    } 
+    else {
+      setDraftName("Draft 1");
     }
 
     setTimeout(() => setIsInitialLoad(false), 500);
