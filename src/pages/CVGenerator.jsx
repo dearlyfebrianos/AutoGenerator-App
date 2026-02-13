@@ -36,7 +36,6 @@ import {
 } from "../utils/draftManager";
 import { showBadgeNotification } from "../components/ui/BadgeNotification";
 import DraftDropdown from "../components/ui/DraftDropdown";
-
 // Import dnd-kit
 import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
 import {
@@ -47,7 +46,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion, AnimatePresence } from "framer-motion";
-
 const COUNTRY_CODES = {
   7: "RU",
   1: "US",
@@ -63,7 +61,6 @@ const COUNTRY_CODES = {
   91: "IN",
   62: "ID",
 };
-
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
   const digitsOnly = phone.replace(/\D/g, "");
@@ -155,7 +152,6 @@ const formatPhoneNumber = (phone) => {
   }
   return phone;
 };
-
 const DEFAULT_PERSONAL_INFO = {
   nama: "",
   email: "",
@@ -164,7 +160,6 @@ const DEFAULT_PERSONAL_INFO = {
   kota: "",
   link: "",
 };
-
 const createDefaultSections = () => [
   {
     id: 1,
@@ -179,7 +174,6 @@ const createDefaultSections = () => [
     items: [{ id: 1, judul: "", subjudul: "", tahun: "", deskripsi: "" }],
   },
 ];
-
 // Komponen Section yang bisa di-drag & collapse
 const SortableSection = ({
   section,
@@ -202,17 +196,14 @@ const SortableSection = ({
     transition,
     isDragging,
   } = useSortable({ id: section.id });
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
-
   const [showActions, setShowActions] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const actionsRef = useRef(null);
-
   // Detect mobile screen
   useEffect(() => {
     const checkMobile = () => {
@@ -222,7 +213,6 @@ const SortableSection = ({
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -232,16 +222,16 @@ const SortableSection = ({
     };
     if (showActions) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showActions]);
-
   return (
     <motion.div
       ref={setNodeRef}
       style={{
         ...style,
-        zIndex: showActions ? 999 : (isDragging ? 1000 : "auto"),
+        zIndex: showActions ? 999 : isDragging ? 1000 : "auto",
       }}
       className="mb-6 relative"
       initial={{ opacity: 0, y: 10 }}
@@ -258,6 +248,13 @@ const SortableSection = ({
               {...attributes}
               {...listeners}
               className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
+              onMouseDown={(e) => {
+                // Only allow drag if NOT clicking on input
+                const target = e.target;
+                if (target.tagName === "INPUT") {
+                  e.stopPropagation();
+                }
+              }}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -275,18 +272,25 @@ const SortableSection = ({
               </svg>
             </div>
           )}
-
+          {/* CRITICAL FIX: Input with proper isolation from drag */}
           <input
             type="text"
             value={section.title}
-            onChange={(e) => onUpdateItem(section.id, "title", e.target.value)}
-            onClick={(e) => e.stopPropagation()}
+            onChange={(e) =>
+              onUpdateItem(section.id, null, "title", e.target.value)
+            }
+            onFocus={(e) => {
+              // Close dropdown when input is focused
+              setShowActions(false);
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
             className="text-lg md:text-xl font-bold text-gray-800 dark:text-white pb-1 border-b-2 border-purple-600 dark:border-purple-500 bg-transparent focus:outline-none flex-1 min-w-0"
             placeholder="JUDUL SECTION"
             style={{ textTransform: "uppercase" }}
           />
         </div>
-
         {/* Action Buttons */}
         <div className="flex items-center space-x-1 md:space-x-2 flex-shrink-0 ml-2">
           <div className="relative" ref={actionsRef}>
@@ -300,17 +304,19 @@ const SortableSection = ({
             >
               <MoreVertical size={18} />
             </button>
-
-            {/* Dropdown Menu dengan z-index tinggi */}
+            {/* Dropdown Menu - POSITIONED TO NOT COVER INPUT */}
             <AnimatePresence>
               {showActions && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
-                  style={{ zIndex: 9999 }}
+                  className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+                  style={{
+                    zIndex: 9999,
+                    pointerEvents: "auto", // Ensure dropdown can receive clicks
+                  }}
                 >
                   {/* Move Up Button */}
                   {index > 0 && (
@@ -326,7 +332,6 @@ const SortableSection = ({
                       <span>Pindah Ke Atas</span>
                     </button>
                   )}
-
                   {/* Move Down Button */}
                   {index < sectionsLength - 1 && (
                     <button
@@ -341,12 +346,10 @@ const SortableSection = ({
                       <span>Pindah Ke Bawah</span>
                     </button>
                   )}
-
                   {/* Divider if there are move buttons */}
                   {(index > 0 || index < sectionsLength - 1) && (
                     <div className="border-t border-gray-200 dark:border-gray-700"></div>
                   )}
-
                   {/* Delete Button */}
                   <button
                     onClick={(e) => {
@@ -363,7 +366,6 @@ const SortableSection = ({
               )}
             </AnimatePresence>
           </div>
-
           <button
             className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
             onClick={(e) => {
@@ -376,7 +378,6 @@ const SortableSection = ({
           </button>
         </div>
       </div>
-
       {/* Content Section (collapsed/expanded) */}
       <AnimatePresence>
         {!isCollapsed && (
@@ -469,7 +470,6 @@ const SortableSection = ({
     </motion.div>
   );
 };
-
 const CVGenerator = () => {
   const [personalInfo, setPersonalInfo] = useState(DEFAULT_PERSONAL_INFO);
   const [profileSummary, setProfileSummary] = useState("");
@@ -483,13 +483,11 @@ const CVGenerator = () => {
   const fileInputRef = useRef(null);
   const cvRef = useRef(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-
   // State untuk collapse section & personal info
   const [isPersonalInfoCollapsed, setIsPersonalInfoCollapsed] = useState(() => {
     const saved = localStorage.getItem("cv_personal_info_collapsed");
     return saved === "true";
   });
-
   const [collapsedSections, setCollapsedSections] = useState(() => {
     const saved = localStorage.getItem("cv_collapsed_sections");
     if (saved) {
@@ -504,7 +502,6 @@ const CVGenerator = () => {
       return acc;
     }, {});
   });
-
   const toggleCollapse = (sectionId) => {
     setCollapsedSections((prev) => {
       const newState = {
@@ -515,51 +512,69 @@ const CVGenerator = () => {
       return newState;
     });
   };
-
   const togglePersonalInfo = () => {
     const newState = !isPersonalInfoCollapsed;
     setIsPersonalInfoCollapsed(newState);
     localStorage.setItem("cv_personal_info_collapsed", String(newState));
   };
-
   // Auto-save effect - simpan otomatis setiap ada perubahan jika draft sudah dipilih
   useEffect(() => {
     // Skip jika masih initial load atau tidak ada draft yang dipilih
     if (isInitialLoad || !selectedDraftId) {
       return;
     }
-
-    // Debounce auto-save untuk menghindari terlalu banyak save
+    // Debounce auto-save untuk menghindari terlalu banyak save dan conflict dengan input
     const timeoutId = setTimeout(() => {
+      // CRITICAL FIX: Cek apakah ada input/textarea yang sedang di-focus
+      const activeElement = document.activeElement;
+      const isInputFocused =
+        activeElement &&
+        (activeElement.tagName === "INPUT" ||
+          activeElement.tagName === "TEXTAREA");
+
+      // Skip auto-save jika user sedang mengetik di input/textarea
+      if (isInputFocused) {
+        console.log("⏸️ Auto-save skipped: user is typing");
+        return;
+      }
       const currentData = getCurrentDraftData();
-      const currentDraft = savedDrafts.find(d => d.id === selectedDraftId);
-      
+      const currentDraft = savedDrafts.find((d) => d.id === selectedDraftId);
+
       if (currentDraft) {
         // Auto-save tanpa toast notification agar tidak mengganggu
-        saveDraft(currentData, {
+        const saved = saveDraft(currentData, {
           id: selectedDraftId,
           name: currentDraft.name,
         });
-        
-        console.log("💾 Auto-saved:", currentDraft.name);
+
+        if (saved) {
+          console.log("💾 Auto-saved:", currentDraft.name);
+        }
       }
-    }, 1000); // Delay 1 detik setelah perubahan terakhir
-
+    }, 3000); // Delay 3 detik setelah perubahan terakhir
     return () => clearTimeout(timeoutId);
-  }, [personalInfo, profileSummary, sections, template, foto, selectedDraftId, isInitialLoad]);
-
+  }, [
+    personalInfo,
+    profileSummary,
+    sections,
+    template,
+    foto,
+    selectedDraftId,
+    isInitialLoad,
+    savedDrafts,
+  ]);
   // Load drafts and last selected draft on mount
   useEffect(() => {
     const drafts = listDrafts();
     setSavedDrafts(drafts);
-    
+
     // Load last selected draft dari localStorage
     const lastSelectedDraftId = localStorage.getItem("cv_last_selected_draft");
-    
+
     if (lastSelectedDraftId && drafts.length > 0) {
       // Cek apakah draft dengan ID tersebut masih ada
-      const draftExists = drafts.find(d => d.id === lastSelectedDraftId);
-      
+      const draftExists = drafts.find((d) => d.id === lastSelectedDraftId);
+
       if (draftExists) {
         // Load draft tersebut
         const draftData = loadDraft(lastSelectedDraftId);
@@ -577,22 +592,18 @@ const CVGenerator = () => {
     } else {
       setDraftName("Draft 1");
     }
-    
+
     // Set initial load selesai
     setTimeout(() => setIsInitialLoad(false), 500);
   }, []);
-
   const [isTemplateOpen, setIsTemplateOpen] = useState(false);
   const [isDraftOpen, setIsDraftOpen] = useState(false);
-
   const toggleTemplate = () => {
     setIsTemplateOpen((prev) => !prev);
   };
-
   const toggleDraft = () => {
     setIsDraftOpen((prev) => !prev);
   };
-
   const getCurrentDraftData = () => ({
     personalInfo,
     profileSummary,
@@ -600,7 +611,6 @@ const CVGenerator = () => {
     template,
     foto,
   });
-
   const resetEditor = () => {
     setPersonalInfo(DEFAULT_PERSONAL_INFO);
     setProfileSummary("");
@@ -611,7 +621,6 @@ const CVGenerator = () => {
       fileInputRef.current.value = "";
     }
   };
-
   const applyDraftData = (draft) => {
     if (!draft) return;
     setPersonalInfo({
@@ -630,13 +639,11 @@ const CVGenerator = () => {
       fileInputRef.current.value = "";
     }
   };
-
   const refreshDrafts = () => {
     const drafts = listDrafts();
     setSavedDrafts(drafts);
     return drafts;
   };
-
   // Modified: Wrapper untuk setSelectedDraftId yang juga menyimpan ke localStorage
   const updateSelectedDraft = (draftId) => {
     setSelectedDraftId(draftId);
@@ -648,7 +655,6 @@ const CVGenerator = () => {
       console.log("❌ Removed from localStorage");
     }
   };
-
   const addSection = () => {
     const newSection = {
       id: Date.now(),
@@ -666,7 +672,6 @@ const CVGenerator = () => {
       return newState;
     });
   };
-
   const removeSection = (sectionId) => {
     setSections(sections.filter((section) => section.id !== sectionId));
     setCollapsedSections((prev) => {
@@ -676,7 +681,6 @@ const CVGenerator = () => {
       return newState;
     });
   };
-
   const updateSection = (sectionId, field, value) => {
     setSections(
       sections.map((section) =>
@@ -684,7 +688,6 @@ const CVGenerator = () => {
       ),
     );
   };
-
   const addItem = (sectionId) => {
     setSections(
       sections.map((section) => {
@@ -702,7 +705,6 @@ const CVGenerator = () => {
       }),
     );
   };
-
   const removeItem = (sectionId, itemId) => {
     setSections(
       sections.map((section) => {
@@ -716,9 +718,8 @@ const CVGenerator = () => {
       }),
     );
   };
-
   const updateItem = (sectionId, itemId, field, value) => {
-    if (typeof itemId === "string") {
+    if (itemId === null) {
       updateSection(sectionId, field, value);
       return;
     }
@@ -736,7 +737,6 @@ const CVGenerator = () => {
       }),
     );
   };
-
   // Move section up
   const moveSectionUp = (index) => {
     if (index > 0) {
@@ -749,7 +749,6 @@ const CVGenerator = () => {
       toast.success("Section dipindahkan ke atas", { duration: 2000 });
     }
   };
-
   // Move section down
   const moveSectionDown = (index) => {
     if (index < sections.length - 1) {
@@ -762,7 +761,6 @@ const CVGenerator = () => {
       toast.success("Section dipindahkan ke bawah", { duration: 2000 });
     }
   };
-
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -773,14 +771,12 @@ const CVGenerator = () => {
       reader.readAsDataURL(file);
     }
   };
-
   const handleHapusFoto = () => {
     setFoto(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
-
   const formatDraftTimestamp = (timestamp) => {
     if (!timestamp) return "-";
     try {
@@ -792,7 +788,6 @@ const CVGenerator = () => {
       return "-";
     }
   };
-
   const handleDragEnd = (event) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
@@ -804,54 +799,46 @@ const CVGenerator = () => {
     }
     setActiveId(null);
   };
-
   const handleDragStart = (event) => {
     setActiveId(event.active.id);
   };
-
   const handleSaveDraft = () => {
     const trimmedName = draftName.trim();
     if (!trimmedName) {
       toast.error("Nama draft wajib diisi!", { duration: 3000 });
       return;
     }
-
     const currentData = getCurrentDraftData();
-
     const existingDraft = savedDrafts.find(
       (draft) => draft.name.toLowerCase() === trimmedName.toLowerCase(),
     );
-
     let draftIdToUse = null;
     if (existingDraft) {
       draftIdToUse = existingDraft.id;
     } else {
       draftIdToUse = `draft_${Date.now()}`;
     }
-
     const saved = saveDraft(currentData, {
       id: draftIdToUse,
       name: trimmedName,
     });
-
     if (!saved) {
       toast.error("Gagal menyimpan draft!", { duration: 3000 });
       return;
     }
-
     const updatedDrafts = listDrafts();
     setSavedDrafts(updatedDrafts);
-    
+
     // Gunakan wrapper function untuk update dan save ke localStorage
     updateSelectedDraft(draftIdToUse);
     setDraftName(trimmedName);
-
     toast.success(
-      existingDraft ? "Draft berhasil diperbarui!" : "Draft baru berhasil disimpan!",
+      existingDraft
+        ? "Draft berhasil diperbarui!"
+        : "Draft baru berhasil disimpan!",
       { duration: 3000 },
     );
   };
-
   const handleDownloadDOCX = () => {
     const requiredFields = [
       { value: personalInfo.nama, label: "Nama Lengkap" },
@@ -860,9 +847,7 @@ const CVGenerator = () => {
       { value: personalInfo.alamat, label: "Alamat" },
       { value: personalInfo.kota, label: "Kota / Provinsi" },
     ];
-
     const missingFields = requiredFields.filter((field) => !field.value.trim());
-
     if (missingFields.length > 0) {
       toast.error(
         `Harap isi semua field wajib:\n${missingFields.map((f) => f.label).join(", ")}`,
@@ -881,9 +866,7 @@ const CVGenerator = () => {
       );
       return;
     }
-
     const formattedPhone = formatPhoneNumber(personalInfo.telepon);
-
     const doc = new Document({
       sections: [
         {
@@ -943,13 +926,11 @@ const CVGenerator = () => {
         },
       ],
     });
-
     Packer.toBlob(doc).then((blob) => {
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = `CV ATS ${personalInfo.nama.replace(/\s+/g, " ").toUpperCase()}.docx`;
       link.click();
-
       const unlocked = unlockAchievement("word_export");
       if (unlocked) {
         showBadgeNotification(
@@ -959,7 +940,6 @@ const CVGenerator = () => {
       }
     });
   };
-
   const handleDownloadCV = () => {
     const requiredFields = [
       { value: personalInfo.nama, label: "Nama Lengkap" },
@@ -968,9 +948,7 @@ const CVGenerator = () => {
       { value: personalInfo.alamat, label: "Alamat" },
       { value: personalInfo.kota, label: "Kota / Provinsi" },
     ];
-
     const missingFields = requiredFields.filter((field) => !field.value.trim());
-
     if (missingFields.length > 0) {
       toast.error(
         `Harap isi semua field wajib:\n${missingFields.map((f) => f.label).join(", ")}`,
@@ -989,9 +967,7 @@ const CVGenerator = () => {
       );
       return;
     }
-
     if (!cvRef.current) return;
-
     const clone = cvRef.current.cloneNode(true);
     const allElements = clone.querySelectorAll("*");
     allElements.forEach((el) => {
@@ -1001,7 +977,6 @@ const CVGenerator = () => {
         );
         classesToRemove.forEach((cls) => el.classList.remove(cls));
       }
-
       const tagName = el.tagName.toLowerCase();
       if (
         ["h1", "h2", "h3", "h4", "h5", "h6", "p", "span", "div"].includes(
@@ -1010,27 +985,22 @@ const CVGenerator = () => {
       ) {
         el.style.color = "#000000";
       }
-
       if (el.style.borderColor || el.className.includes("border")) {
         el.style.borderColor = "#000000";
       }
-
       if (tagName === "img") {
         el.style.backgroundColor = "#ffffff";
         el.style.border = "none";
       }
     });
-
     clone.style.backgroundColor = "#ffffff";
     clone.style.color = "#000000";
-
     const tempContainer = document.createElement("div");
     tempContainer.style.position = "absolute";
     tempContainer.style.left = "-9999px";
     tempContainer.style.backgroundColor = "#ffffff";
     tempContainer.appendChild(clone);
     document.body.appendChild(tempContainer);
-
     const opt = {
       margin: [10, 10, 10, 10],
       filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase() || "SAYA"}.pdf`,
@@ -1048,7 +1018,6 @@ const CVGenerator = () => {
       },
       pagebreak: { mode: ["avoid-all", "css", "legacy"] },
     };
-
     html2pdf()
       .set(opt)
       .from(clone)
@@ -1090,7 +1059,6 @@ const CVGenerator = () => {
           ),
           { duration: 5000 },
         );
-
         const unlocked = unlockAchievement("pdf_export");
         if (unlocked) {
           showBadgeNotification(
@@ -1098,7 +1066,6 @@ const CVGenerator = () => {
             "Kamu telah mengunduh CV dalam format PDF!",
           );
         }
-
         const exports = JSON.parse(localStorage.getItem("cv_exports") || "0");
         localStorage.setItem("cv_exports", JSON.stringify(exports + 1));
         if (exports + 1 === 5) {
@@ -1113,7 +1080,6 @@ const CVGenerator = () => {
         document.body.removeChild(tempContainer);
       });
   };
-
   const getTemplateClass = () => {
     switch (template) {
       case "corporate":
@@ -1122,9 +1088,7 @@ const CVGenerator = () => {
         return "";
     }
   };
-
   const formattedPhonePreview = formatPhoneNumber(personalInfo.telepon);
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 px-2 md:px-0">
       <div className="space-y-4 md:space-y-6">
@@ -1136,7 +1100,6 @@ const CVGenerator = () => {
             />
             CV Generator
           </h2>
-
           {/* Template Selection - Collapsible */}
           <div className="mb-4 md:mb-6 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden relative z-10">
             <button
@@ -1209,7 +1172,6 @@ const CVGenerator = () => {
               </div>
             </div>
           </div>
-
           {/* Draft Section - Collapsible */}
           <div className="mb-4 md:mb-6 border border-gray-200 dark:border-gray-600 rounded-xl relative z-[9999]">
             <button
@@ -1284,7 +1246,6 @@ const CVGenerator = () => {
               </div>
             </div>
           </div>
-
           {/* Informasi Pribadi + Deskripsi Diri (Collapsible) */}
           <div className="mb-6 md:mb-8">
             <div
@@ -1292,9 +1253,9 @@ const CVGenerator = () => {
               onClick={togglePersonalInfo}
             >
               <div className="flex items-center space-x-2">
-                <User 
-                  className="text-purple-600 dark:text-purple-400" 
-                  size={20} 
+                <User
+                  className="text-purple-600 dark:text-purple-400"
+                  size={20}
                 />
                 <h3 className="text-lg md:text-xl font-bold text-gray-800 dark:text-white">
                   Informasi Pribadi
@@ -1321,7 +1282,6 @@ const CVGenerator = () => {
                 </button>
               </div>
             </div>
-
             <AnimatePresence>
               {!isPersonalInfoCollapsed && (
                 <motion.div
@@ -1360,14 +1320,16 @@ const CVGenerator = () => {
                       </div>
                     )}
                   </div>
-
                   {/* Field Wajib */}
                   <div className="space-y-3 md:space-y-4">
                     <input
                       type="text"
                       value={personalInfo.nama}
                       onChange={(e) =>
-                        setPersonalInfo({ ...personalInfo, nama: e.target.value })
+                        setPersonalInfo({
+                          ...personalInfo,
+                          nama: e.target.value,
+                        })
                       }
                       className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
                         !personalInfo.nama.trim()
@@ -1378,14 +1340,18 @@ const CVGenerator = () => {
                       style={{ textTransform: "uppercase" }}
                     />
                     {!personalInfo.nama.trim() && (
-                      <p className="text-xs md:text-sm text-red-600">Wajib diisi</p>
+                      <p className="text-xs md:text-sm text-red-600">
+                        Wajib diisi
+                      </p>
                     )}
-
                     <input
                       type="email"
                       value={personalInfo.email}
                       onChange={(e) =>
-                        setPersonalInfo({ ...personalInfo, email: e.target.value })
+                        setPersonalInfo({
+                          ...personalInfo,
+                          email: e.target.value,
+                        })
                       }
                       className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
                         !personalInfo.email.trim()
@@ -1395,24 +1361,30 @@ const CVGenerator = () => {
                       placeholder="Email"
                     />
                     {!personalInfo.email.trim() && (
-                      <p className="text-xs md:text-sm text-red-600">Wajib diisi</p>
+                      <p className="text-xs md:text-sm text-red-600">
+                        Wajib diisi
+                      </p>
                     )}
-
                     <input
                       type="url"
                       value={personalInfo.link}
                       onChange={(e) =>
-                        setPersonalInfo({ ...personalInfo, link: e.target.value })
+                        setPersonalInfo({
+                          ...personalInfo,
+                          link: e.target.value,
+                        })
                       }
                       className="w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm md:text-base"
                       placeholder="Link Portfolio / LinkedIn / GitHub"
                     />
-
                     <input
                       type="tel"
                       value={personalInfo.telepon}
                       onChange={(e) =>
-                        setPersonalInfo({ ...personalInfo, telepon: e.target.value })
+                        setPersonalInfo({
+                          ...personalInfo,
+                          telepon: e.target.value,
+                        })
                       }
                       className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
                         !personalInfo.telepon.trim()
@@ -1422,14 +1394,18 @@ const CVGenerator = () => {
                       placeholder="Nomor Telepon"
                     />
                     {!personalInfo.telepon.trim() && (
-                      <p className="text-xs md:text-sm text-red-600">Wajib diisi</p>
+                      <p className="text-xs md:text-sm text-red-600">
+                        Wajib diisi
+                      </p>
                     )}
-
                     <input
                       type="text"
                       value={personalInfo.alamat}
                       onChange={(e) =>
-                        setPersonalInfo({ ...personalInfo, alamat: e.target.value })
+                        setPersonalInfo({
+                          ...personalInfo,
+                          alamat: e.target.value,
+                        })
                       }
                       className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
                         !personalInfo.alamat.trim()
@@ -1439,14 +1415,18 @@ const CVGenerator = () => {
                       placeholder="Alamat"
                     />
                     {!personalInfo.alamat.trim() && (
-                      <p className="text-xs md:text-sm text-red-600">Wajib diisi</p>
+                      <p className="text-xs md:text-sm text-red-600">
+                        Wajib diisi
+                      </p>
                     )}
-
                     <input
                       type="text"
                       value={personalInfo.kota}
                       onChange={(e) =>
-                        setPersonalInfo({ ...personalInfo, kota: e.target.value })
+                        setPersonalInfo({
+                          ...personalInfo,
+                          kota: e.target.value,
+                        })
                       }
                       className={`w-full px-3 md:px-4 py-2 md:py-3 rounded-lg border ${
                         !personalInfo.kota.trim()
@@ -1456,9 +1436,10 @@ const CVGenerator = () => {
                       placeholder="Kota, Provinsi"
                     />
                     {!personalInfo.kota.trim() && (
-                      <p className="text-xs md:text-sm text-red-600">Wajib diisi</p>
+                      <p className="text-xs md:text-sm text-red-600">
+                        Wajib diisi
+                      </p>
                     )}
-
                     {/* Deskripsi Diri (Ringkasan Profil) */}
                     <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
                       <h4 className="text-base md:text-lg font-bold text-gray-800 dark:text-white mb-2">
@@ -1476,7 +1457,6 @@ const CVGenerator = () => {
               )}
             </AnimatePresence>
           </div>
-
           {/* Section Reordering */}
           <DndContext
             collisionDetection={closestCenter}
@@ -1514,7 +1494,6 @@ const CVGenerator = () => {
               ) : null}
             </DragOverlay>
           </DndContext>
-
           <button
             onClick={addSection}
             className="w-full py-2.5 md:py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center space-x-2 transform hover:scale-[1.02] text-sm md:text-base"
@@ -1524,7 +1503,6 @@ const CVGenerator = () => {
           </button>
         </div>
       </div>
-
       <div className="lg:sticky lg:top-24 h-fit">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 md:p-8">
           <div className="flex justify-between items-center mb-4 md:mb-6 gap-2">
@@ -1548,7 +1526,6 @@ const CVGenerator = () => {
               </button>
             </div>
           </div>
-
           <div
             ref={cvRef}
             className={
@@ -1592,7 +1569,6 @@ const CVGenerator = () => {
                         }
                         if (formattedPhonePreview)
                           contactItems.push(formattedPhonePreview);
-
                         return contactItems.map((item, index) => (
                           <React.Fragment key={index}>
                             {item}
@@ -1632,7 +1608,6 @@ const CVGenerator = () => {
                       }
                       if (formattedPhonePreview)
                         contactItems.push(formattedPhonePreview);
-
                       return contactItems.map((item, index) => (
                         <React.Fragment key={index}>
                           {item}
@@ -1648,7 +1623,6 @@ const CVGenerator = () => {
                 </>
               )}
             </div>
-
             {profileSummary && (
               <div className="mb-2 text-justify">
                 <p className="leading-5 md:leading-6 text-sm md:text-base text-gray-800 dark:text-gray-300">
@@ -1656,7 +1630,6 @@ const CVGenerator = () => {
                 </p>
               </div>
             )}
-
             {sections.map((section) => (
               <div key={section.id} className="mb-4 md:mb-6">
                 <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-2 md:pt-3 mb-3 md:mb-4">
@@ -1696,5 +1669,4 @@ const CVGenerator = () => {
     </div>
   );
 };
-
 export default CVGenerator;
