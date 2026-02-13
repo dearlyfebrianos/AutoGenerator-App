@@ -642,7 +642,7 @@ const CVGenerator = () => {
 
     const opt = {
       margin: [10, 10, 10, 10],
-      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, "_").toUpperCase() || "SAYA"}.pdf`,
+      filename: `CV ATS ${personalInfo.nama.replace(/\s+/g, " ").toUpperCase() || "SAYA"}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
         scale: 2,
@@ -792,7 +792,7 @@ const CVGenerator = () => {
                     id: "corporate",
                     name: "Korporat",
                     desc: "Formal & terstruktur",
-                  }
+                  },
                 ].map((tpl) => (
                   <button
                     key={tpl.id}
@@ -870,7 +870,7 @@ const CVGenerator = () => {
                   />
                 </div>
 
-                <div className="relative z-[99999]">
+                <div className="flex items-center gap-2 mt-4 relative z-[99999]">
                   <DraftDropdown
                     savedDrafts={savedDrafts}
                     selectedDraftId={selectedDraftId}
@@ -883,9 +883,7 @@ const CVGenerator = () => {
                     refreshDrafts={refreshDrafts}
                     formatDraftTimestamp={formatDraftTimestamp}
                   />
-                </div>
 
-                <div className="flex gap-2 mt-4">
                   <button
                     onClick={handleSaveDraft}
                     className="flex items-center space-x-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105"

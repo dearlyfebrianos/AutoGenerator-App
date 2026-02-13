@@ -14,7 +14,10 @@ import KalkulatorUsaha from "./pages/KalkulatorUsaha";
 import CVGenerator from "./pages/CVGenerator";
 import RingkasanMateri from "./pages/RingkasanMateri";
 import NotFound from "./pages/404";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
 import InstallPrompt from "./components/ui/InstallPrompt";
+import GlobalAnnounce from "./components/ui/GlobalAnnounce";
 import { toast } from "react-hot-toast";
 import useSeo from "./hooks/useSeo";
 
@@ -432,6 +435,12 @@ const useTheme = () => {
   return [theme, setTheme];
 };
 
+// Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const isAuth = localStorage.getItem("adminAuth");
+  return isAuth ? children : <Navigate to="/admin" replace />;
+};
+
 const AppContent = () => {
   const [theme, setTheme] = useTheme();
   const [showSplash, setShowSplash] = useState(false);
@@ -505,12 +514,22 @@ const AppContent = () => {
           <Route path="/keuangan" element={<KalkulatorUsaha />} />
           <Route path="/cv" element={<CVGenerator />} />
           <Route path="/materi" element={<RingkasanMateri />} />
+          <Route path="/admin" element={<AdminLogin />} />
+          <Route
+            path="/admin/announce"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/404" element={<NotFound />} />
           <Route path="*" element={<Navigate to="/404" replace />} />
         </Routes>
       </main>
       <Footer />
       <InstallPrompt />
+      <GlobalAnnounce />
       <BugReportModal
         isOpen={isBugModalOpen}
         onClose={() => setIsBugModalOpen(false)}
