@@ -522,6 +522,32 @@ const CVGenerator = () => {
     localStorage.setItem("cv_personal_info_collapsed", String(newState));
   };
 
+  // Auto-save effect - simpan otomatis setiap ada perubahan jika draft sudah dipilih
+  useEffect(() => {
+    // Skip jika masih initial load atau tidak ada draft yang dipilih
+    if (isInitialLoad || !selectedDraftId) {
+      return;
+    }
+
+    // Debounce auto-save untuk menghindari terlalu banyak save
+    const timeoutId = setTimeout(() => {
+      const currentData = getCurrentDraftData();
+      const currentDraft = savedDrafts.find(d => d.id === selectedDraftId);
+      
+      if (currentDraft) {
+        // Auto-save tanpa toast notification agar tidak mengganggu
+        saveDraft(currentData, {
+          id: selectedDraftId,
+          name: currentDraft.name,
+        });
+        
+        console.log("💾 Auto-saved:", currentDraft.name);
+      }
+    }, 1000); // Delay 1 detik setelah perubahan terakhir
+
+    return () => clearTimeout(timeoutId);
+  }, [personalInfo, profileSummary, sections, template, foto, selectedDraftId, isInitialLoad]);
+
   // Load drafts and last selected draft on mount
   useEffect(() => {
     const drafts = listDrafts();
