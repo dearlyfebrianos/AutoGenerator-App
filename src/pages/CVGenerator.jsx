@@ -1259,6 +1259,7 @@ useEffect(() => {
         timestamp={recoveryData?.timestamp}
       />
 
+      {/* PERUBAHAN UTAMA: Hilangkan lg:sticky dan h-fit, biarkan tinggi natural */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 px-2 md:px-0">
         <div className="space-y-4 md:space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 md:p-8 relative">
@@ -1676,7 +1677,8 @@ useEffect(() => {
           </div>
         </div>
 
-        <div className="lg:sticky lg:top-24 h-fit">
+        {/* PERUBAHAN KUNCI: Hilangkan lg:sticky lg:top-24 h-fit */}
+        <div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-4 md:p-8">
             <div className="flex justify-between items-center mb-4 md:mb-6 gap-2">
               <h3 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">
@@ -1699,30 +1701,72 @@ useEffect(() => {
                 </button>
               </div>
             </div>
-            <div
-              ref={cvRef}
-              className={
-                template === "elegant"
-                  ? "p-4 md:p-8 min-h-[600px] md:min-h-[800px]"
-                  : `p-4 md:p-8 min-h-[600px] md:min-h-[800px] ${getTemplateClass()}`
-              }
-              style={{ fontFamily: "'Times New Roman', Times, serif" }}
-            >
-              <div className="text-center mb-4 md:mb-6 pb-4 md:pb-6">
-                {foto ? (
-                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 md:gap-6">
-                    <div className="flex-shrink-0 relative">
-                      <img
-                        src={foto}
-                        alt="Foto Profil"
-                        className="w-20 h-20 md:w-24 md:h-24 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
-                      />
+            
+            {/* PERUBAHAN: Tambah max-height dan overflow-y-auto untuk scrollable preview jika panjang */}
+            <div className="max-h-[800px] overflow-y-auto">
+              <div
+                ref={cvRef}
+                className={
+                  template === "elegant"
+                    ? "p-4 md:p-8"
+                    : `p-4 md:p-8 ${getTemplateClass()}`
+                }
+                style={{ fontFamily: "'Times New Roman', Times, serif" }}
+              >
+                <div className="text-center mb-4 md:mb-6 pb-4 md:pb-6">
+                  {foto ? (
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 md:gap-6">
+                      <div className="flex-shrink-0 relative">
+                        <img
+                          src={foto}
+                          alt="Foto Profil"
+                          className="w-20 h-20 md:w-24 md:h-24 object-cover rounded border-2 border-gray-300 dark:border-gray-600"
+                        />
+                      </div>
+                      <div className="flex-1 text-center sm:text-left">
+                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                          {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
+                        </h1>
+                        <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center sm:justify-start gap-1">
+                          {(() => {
+                            const contactItems = [];
+                            if (personalInfo.email)
+                              contactItems.push(personalInfo.email);
+                            if (personalInfo.link) {
+                              contactItems.push(
+                                <a
+                                  key="link"
+                                  href={personalInfo.link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 break-all"
+                                >
+                                  {personalInfo.link}
+                                </a>,
+                              );
+                            }
+                            if (formattedPhonePreview)
+                              contactItems.push(formattedPhonePreview);
+                            return contactItems.map((item, index) => (
+                              <React.Fragment key={index}>
+                                {item}
+                                {index < contactItems.length - 1 && <span>|</span>}
+                              </React.Fragment>
+                            ));
+                          })()}
+                        </div>
+                        <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-2">
+                          {personalInfo.alamat || "Alamat"}
+                          {personalInfo.kota && `, ${personalInfo.kota}`}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 text-center sm:text-left">
+                  ) : (
+                    <>
                       <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
                         {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
                       </h1>
-                      <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center sm:justify-start gap-1">
+                      <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
                         {(() => {
                           const contactItems = [];
                           if (personalInfo.email)
@@ -1754,88 +1798,50 @@ useEffect(() => {
                         {personalInfo.alamat || "Alamat"}
                         {personalInfo.kota && `, ${personalInfo.kota}`}
                       </p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                      {personalInfo.nama.toUpperCase() || "NAMA LENGKAP"}
-                    </h1>
-                    <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 flex flex-wrap justify-center gap-1">
-                      {(() => {
-                        const contactItems = [];
-                        if (personalInfo.email)
-                          contactItems.push(personalInfo.email);
-                        if (personalInfo.link) {
-                          contactItems.push(
-                            <a
-                              key="link"
-                              href={personalInfo.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 break-all"
-                            >
-                              {personalInfo.link}
-                            </a>,
-                          );
-                        }
-                        if (formattedPhonePreview)
-                          contactItems.push(formattedPhonePreview);
-                        return contactItems.map((item, index) => (
-                          <React.Fragment key={index}>
-                            {item}
-                            {index < contactItems.length - 1 && <span>|</span>}
-                          </React.Fragment>
-                        ));
-                      })()}
-                    </div>
-                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-2">
-                      {personalInfo.alamat || "Alamat"}
-                      {personalInfo.kota && `, ${personalInfo.kota}`}
+                    </>
+                  )}
+                </div>
+                {profileSummary && (
+                  <div className="mb-2 text-justify">
+                    <p className="leading-5 md:leading-6 text-sm md:text-base text-gray-800 dark:text-gray-300">
+                      {profileSummary}
                     </p>
-                  </>
-                )}
-              </div>
-              {profileSummary && (
-                <div className="mb-2 text-justify">
-                  <p className="leading-5 md:leading-6 text-sm md:text-base text-gray-800 dark:text-gray-300">
-                    {profileSummary}
-                  </p>
-                </div>
-              )}
-              {sections.map((section) => (
-                <div key={section.id} className="mb-4 md:mb-6">
-                  <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-2 md:pt-3 mb-3 md:mb-4">
-                    <h2 className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
-                      {section.title.toUpperCase() || "SECTION TITLE"}
-                    </h2>
                   </div>
-                  {section.items.map((item) => (
-                    <div key={item.id} className="mb-3 md:mb-4">
-                      {item.judul && (
-                        <h3 className="font-bold text-sm md:text-base text-gray-900 dark:text-white">
-                          {item.judul}
-                        </h3>
-                      )}
-                      {item.subjudul && (
-                        <p className="text-xs md:text-sm text-gray-700 dark:text-gray-400">
-                          {item.subjudul}
-                        </p>
-                      )}
-                      {item.tahun && (
-                        <p className="text-xs md:text-sm text-gray-600 dark:text-gray-500 italic">
-                          {item.tahun}
-                        </p>
-                      )}
-                      {item.deskripsi && (
-                        <p className="text-xs md:text-sm text-gray-700 dark:text-gray-400 mt-1 whitespace-pre-wrap">
-                          {item.deskripsi}
-                        </p>
-                      )}
+                )}
+                {sections.map((section) => (
+                  <div key={section.id} className="mb-4 md:mb-6">
+                    <div className="border-t-2 border-gray-800 dark:border-gray-400 pt-2 md:pt-3 mb-3 md:mb-4">
+                      <h2 className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
+                        {section.title.toUpperCase() || "SECTION TITLE"}
+                      </h2>
                     </div>
-                  ))}
-                </div>
-              ))}
+                    {section.items.map((item) => (
+                      <div key={item.id} className="mb-3 md:mb-4">
+                        {item.judul && (
+                          <h3 className="font-bold text-sm md:text-base text-gray-900 dark:text-white">
+                            {item.judul}
+                          </h3>
+                        )}
+                        {item.subjudul && (
+                          <p className="text-xs md:text-sm text-gray-700 dark:text-gray-400">
+                            {item.subjudul}
+                          </p>
+                        )}
+                        {item.tahun && (
+                          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-500 italic">
+                            {item.tahun}
+                          </p>
+                        )}
+                        {item.deskripsi && (
+                          <p className="text-xs md:text-sm text-gray-700 dark:text-gray-400 mt-1 whitespace-pre-wrap">
+                            {item.deskripsi}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
