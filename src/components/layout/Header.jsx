@@ -41,9 +41,15 @@ export const detectPlatform = () => {
 
 export const isRunningInMedianApp = () => {
   if (typeof window === "undefined") return false;
+  // Median / Gonative
   if (window.gonative || window.median) return true;
   const ua = navigator.userAgent.toLowerCase();
   if (ua.includes("gonative") || ua.includes("median")) return true;
+  // Electron / Nativefier
+  if (ua.includes("electron")) return true;
+  if (window.process?.type === "renderer") return true;
+  if (typeof window.__ELECTRON__ !== "undefined") return true;
+  // PWA standalone
   if (window.matchMedia("(display-mode: standalone)").matches) return true;
   if (window.navigator.standalone === true) return true;
   return false;
