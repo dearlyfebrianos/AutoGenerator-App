@@ -58,8 +58,8 @@ export const isRunningInMedianApp = () => {
 const DOWNLOAD_CONFIG = {
   android: {
     label: "Download APK",
-    file: "/apk/autogen.apk",
-    filename: "autogen.apk",
+    file: "/apk/AutoGen.apk",
+    filename: "AutoGen.apk",
     icon: Smartphone,
     platformName: "Android",
     color: "from-green-500 to-emerald-600",
@@ -67,17 +67,17 @@ const DOWNLOAD_CONFIG = {
   },
   ios: {
     label: "Download iOS",
-    file: "/ipa/autogen.ipa",
-    filename: "autogen.ipa",
+    file: "/ipa/AutoGen.ipa",
+    filename: "AutoGen.ipa",
     icon: Apple,
     platformName: "iOS",
     color: "from-gray-700 to-gray-900",
     importNote: "Buka app → CV Generator → Kelola Draft → Impor dari File",
   },
   desktop: {
-    label: "Download .EXE",
-    file: "/desktop/autogen.exe",
-    filename: "autogen.exe",
+    label: "Download .ZIP",
+    file: "/desktop/AutoGen.zip",
+    filename: "AutoGen.zip",
     icon: Monitor,
     platformName: "Windows",
     color: "from-blue-500 to-indigo-600",
