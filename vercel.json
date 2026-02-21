@@ -20,6 +20,21 @@
     }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/apk/(.*)",
+      "destination": "/apk/$1"
+    },
+    {
+      "source": "/ipa/(.*)",
+      "destination": "/ipa/$1"
+    },
+    {
+      "source": "/desktop/(.*)",
+      "destination": "/desktop/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
